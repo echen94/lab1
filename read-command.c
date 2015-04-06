@@ -234,17 +234,20 @@ char *get_operator (char *c, int *i, size_t size)
         case ';':
             c_tmp[0]=';';
             c_tmp[1]='\0';
+            *i+=1;
             break;
          //   strncat(string, &c,1);
         case '\n':
             c_tmp[0]='\n';
             c_tmp[1]='\0';
+            *i+=1;
             line_number++;
             break;
         case '&':
             if ((*i<size) && (ci2=='&'))
             {
                 c_tmp="&&";
+                *i+=2;
             }
             else
             {
@@ -256,11 +259,13 @@ char *get_operator (char *c, int *i, size_t size)
             if ((*i<size) && (ci2=='|'))
             {
                 c_tmp="||";
+                *i+=2;
             }
             else
             {
                 c_tmp[0]='|';
                 c_tmp[1]='\0';
+                *i+=1;
             }
             break;
         default:
@@ -343,7 +348,75 @@ char *get_next_word (char *c, int *i, size_t size)
 //implement stacks
 
 
+/*stacks to build the command tree         */
+int OPERATOR_LEN=16;
+int COMMAND_LEN=16;
 
+//stack defs
+struct op_stack
+{
+    char **operator;
+    int len;
+    int top;
+}op_s;
+
+struct cmd_stack
+{
+    command_t* command;
+    int len;
+    int top;
+}cmd_s;
+
+//push pop
+
+bool push_op(struct op_stack *op, char* cc)
+{
+    if (op->len==op->top)
+        return false;
+    else{
+        op->top++;
+        op->operator[op->top]=cc;
+        return true;
+    }
+}
+
+bool pop_op(struct op_stack *op, char* cc)
+{
+    if(op->top==0)
+        return false;
+    else
+    {
+        cc=op->operator[op->top];
+        op->top--;
+        return true;
+    }
+}
+
+bool push_cmd(struct cmd_stack *cmd, command_t cc)
+{
+    if (cmd->len==cmd->top)
+        return false;
+    else{
+        cmd->top++;
+        cmd->command[cmd->top]=cc;
+        return true;
+    }
+}
+
+bool pop_cmd(struct cmd_stack *cmd, command_t cc)
+{
+    if(cmd->top==0)
+        return false;
+    else
+    {
+        cc=cmd->command[cmd->top];
+        cmd->top--;
+        return true;
+    }
+}
+
+
+/*make command stream              */
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
 		     void *get_next_byte_argument)
@@ -365,30 +438,133 @@ make_command_stream (int (*get_next_byte) (void *),
         }
     }
     
+    //initialize operator stack and command stack
+    op_s.operator=checked_malloc(OPERATOR_LEN*sizeof(char));
+    op_s.len=0;
+    op_s.top=0;
     
+    cmd_s.command=checked_malloc(COMMAND_LEN*sizeof(command_t));
+    cmd_s.len=0;
+    cmd_s.top=0;
     
     //loop through buffer. postfix-infix 
     //operator stack *char, command stack command struct
     
-    char **operator_stack=checked_malloc(read_size*sizeof(char*));
-    command_t *command_stack=checked_malloc(read_size*sizeof(char*));
+    
     
     int s=0;
     while (s<read_size)
     {
         char c_tmp=buf[s];
-        char operator [3];
+        //char operator [3];
         switch(c_tmp)
         {
             case '(':
                 //push onto operator stack
+                push_op(&op_s,"(");
                 break;
+            
             //operators. check if it's an operator
             case ';':
+                if (op_s.len==0)
+                    push_op(&op_s, ";");
+                else{
+                    while ( (precedence(op_s.operator[op_s.top])>=precedence(";")) &&(strcmp(op_s.operator[op_s.top],"(")!=0))
+                    {
+                        char* tmp_op;
+                        pop_op(&op_s, tmp_op);
+                        command_t tmp=init_command(cmd_type(tmp_op));
+                        pop_cmd( &cmd_s, tmp->u.command[1]);
+                        pop_cmd(&cmd_s, tmp->u.command[0]);
+                        push_cmd(&cmd_s, tmp);
+                    }
+                    push_op(&op_s, ";");
+                    
+                }
                 break;
             case '|'://check if it's pipe or OR
+                if ( (s+1)<read_size && buf[s+1]=='|')//it's ||
+                {
+                    if (op_s.len==0)
+                        push_op(&op_s, "||");
+                    else{
+                        while ( (precedence(op_s.operator[op_s.top])>=precedence("||")) &&(strcmp(op_s.operator[op_s.top],"||")!=0))
+                        {
+                            char* tmp_op;
+                            pop_op(&op_s, tmp_op);
+                            command_t tmp=init_command(cmd_type(tmp_op));
+                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd(&cmd_s, tmp->u.command[0]);
+                            push_cmd(&cmd_s, tmp);
+                        }
+                        push_op(&op_s, "||");
+                        
+                    }
+                }
+                else //it's |
+                {
+                
+                
+                    if (op_s.len==0)
+                        push_op(&op_s, "|");
+                    else
+                    {
+                        while ( (precedence(op_s.operator[op_s.top])>=precedence("|")) &&(strcmp(op_s.operator[op_s.top],"|")!=0))
+                        {
+                            char* tmp_op;
+                            pop_op(&op_s, tmp_op);
+                            command_t tmp=init_command(cmd_type(tmp_op));
+                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd(&cmd_s, tmp->u.command[0]);
+                            push_cmd(&cmd_s, tmp);
+                        }
+                        push_op(&op_s, "|");
+                    
+                    }
+                }
                 break;
             case '&':
+                if ( (s+1)<read_size && buf[s+1]=='&')//it's &&
+                {
+                    if (op_s.len==0)
+                        push_op(&op_s, "&&");
+                    else{
+                        while ( (precedence(op_s.operator[op_s.top])>=precedence("&&")) &&(strcmp(op_s.operator[op_s.top],"&&")!=0))
+                        {
+                            char* tmp_op;
+                            pop_op(&op_s, tmp_op);
+                            command_t tmp=init_command(cmd_type(tmp_op));
+                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd(&cmd_s, tmp->u.command[0]);
+                            push_cmd(&cmd_s, tmp);
+                        }
+                        push_op(&op_s, "&&");
+                        
+                    }
+                }
+                else //it's &
+                {
+                    
+                    
+                    if (op_s.len==0)
+                        push_op(&op_s, "&");
+                    else
+                    {
+                        while ( (precedence(op_s.operator[op_s.top])>=precedence("&")) &&(strcmp(op_s.operator[op_s.top],"&")!=0))
+                        {
+                            char* tmp_op;
+                            pop_op(&op_s, tmp_op);
+                            command_t tmp=init_command(cmd_type(tmp_op));
+                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd(&cmd_s, tmp->u.command[0]);
+                            push_cmd(&cmd_s, tmp);
+                        }
+                        push_op(&op_s, "&");
+                        
+                    }
+                }
+                
+
                 break;
             case '<'://checked in store_simple_command function?
                 break;
@@ -397,6 +573,36 @@ make_command_stream (int (*get_next_byte) (void *),
             
             //end of operators
             case ')':
+                if (op_s.len==0)
+                    push_op(&op_s, ")");
+                else{
+                    while ((strcmp(op_s.operator[op_s.top],")")!=0))
+                    {
+                        char* tmp_op;
+                        pop_op(&op_s, tmp_op);
+                        command_t tmp=init_command(cmd_type(tmp_op));
+                        pop_cmd( &cmd_s, tmp->u.command[1]);
+                        pop_cmd(&cmd_s, tmp->u.command[0]);
+                        push_cmd(&cmd_s, tmp);
+                    }
+                    command_t tmp=init_command(SUBSHELL_COMMAND);
+                    // input u.subshell_cmd[0]== root inside the subshell ??
+                    //more work...
+                    push_cmd(&cmd_s, tmp);
+                }
+                
+                break;
+            case '#':
+                //skip comment
+                    while (s<read_size)
+                    {
+                        if (buf[s]=='\n')
+                        {
+                            line_number++;
+                            break;
+                        }
+                        (s)++;
+                    }
                 break;
             //&s
                 
@@ -411,6 +617,25 @@ make_command_stream (int (*get_next_byte) (void *),
         {
             fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
             exit(1);
+        }
+        else if (mayBeOperator(c_tmp))
+        {
+            char *op=(char *)checked_malloc(sizeof(char)*5);
+            op=get_operator(buf, &s, read_size);
+            if (op!=NULL)
+            {
+                ;//if it's an operator and operator stack is empty, push operator onto operator stack
+                //if operator and operator stack not empty...pop operators
+                //with higher or equal precedence off operator stack
+                //for each operator, pop 2 commands off command stacks
+                //combine into new command, push it onto command stack
+                //stop when reach operator with lower precedence or a (
+                //push new oeprator onto operator stack
+                //if encounter ). pop operators off stack until matching (
+                //create subshell command by popping top command from command stack
+                //push new command to command stack
+                //nothing left, pop remaining operators
+            }
         }
         //else if (mayBeOperator(c_tmp)){char*op_tmp=store_operator(buf,&s,read_size)
         /*Lowest operand to highest precedance operand
