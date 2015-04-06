@@ -33,9 +33,11 @@ bool isSpecial (char c);
 bool isNotValid (char c);
 command_t init_command(enum command_type type);
 command_stream_t init_stream();
-command_t store_simple_command (char *c, int *i, const int size);
+command_t store_simple_command (char *c, int *i, size_t size);
+bool mayBeOperator (char c);
+char *get_operator (char *c, int *i, size_t size);
 int precedence (char *operator);
-char *get_next_word (char *c, int *i, const int size);
+char *get_next_word (char *c, int *i, size_t size);
 
 
 
@@ -57,7 +59,7 @@ bool isSpecial (char c)
 
 bool isNotValid (char c)
 {
-    return ( (c!=' ') && (c!='#') && (c!='\n') && (!isWord(c)) && (!isSpecial(c)) );
+    return ( (c!=' ') && (c!='#') && (c!='\n') && (c!='&') && (!isWord(c)) && (!isSpecial(c)));
 }
 //end of auxiliary functions
 
@@ -84,8 +86,11 @@ command_stream_t init_stream()
 }
 
 
+//store operators
+
+
 //create simple command (consists of one or more words)
-command_t store_simple_command (char *c, int *i, const int size)
+command_t store_simple_command (char *c, int *i, size_t size)
 {
     command_t command= init_command(SIMPLE_COMMAND);
     int size_word=1;
@@ -197,6 +202,73 @@ command_t store_compound_command()
     return NULL;
 }
 
+//(mayBeOperator(c_tmp)){char*op_tmp=store_operator(buf,&s,read_size)
+
+bool mayBeOperator (char c)
+{
+    switch (c)
+    {
+            case ';':
+            case '\n':
+            case '&':
+            case '|':
+                return true;
+                break;
+        default:
+            return false;
+    }
+ 
+}
+
+char *get_operator (char *c, int *i, size_t size)
+{
+    char *c_tmp=(char *)malloc(sizeof(char)*(3) );
+    char ci=c[*i];
+    char ci2 = '\0';
+    if ((*i+1)<size)
+    {
+        ci2=c[*i+1];
+    }
+    switch (ci)
+    {
+        case ';':
+            c_tmp[0]=';';
+            c_tmp[1]='\0';
+            break;
+         //   strncat(string, &c,1);
+        case '\n':
+            c_tmp[0]='\n';
+            c_tmp[1]='\0';
+            line_number++;
+            break;
+        case '&':
+            if ((*i<size) && (ci2=='&'))
+            {
+                c_tmp="&&";
+            }
+            else
+            {
+                fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,ci);
+                exit(1);
+            }
+            break;
+        case '|':
+            if ((*i<size) && (ci2=='|'))
+            {
+                c_tmp="||";
+            }
+            else
+            {
+                c_tmp[0]='|';
+                c_tmp[1]='\0';
+            }
+            break;
+        default:
+            c_tmp=NULL;
+    }
+    return c_tmp;
+}
+
 //create the tree. operator stack and command stack
 
 //precedance
@@ -223,7 +295,7 @@ int precedence (char *operator)
 }
 
 //char c: start of command. i: index of array
-char *get_next_word (char *c, int *i, const int size)
+char *get_next_word (char *c, int *i, size_t size)
 {
     while ( ((c[*i]==' ') || (c[*i]=='\t') || (c[*i]=='#')) && (*c<size) )
     {
@@ -268,6 +340,9 @@ char *get_next_word (char *c, int *i, const int size)
 
 //get operator function??
 
+//implement stacks
+
+
 
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
@@ -277,6 +352,8 @@ make_command_stream (int (*get_next_byte) (void *),
     size_t read_size=0;
     int c;
     char *buf=checked_malloc(buf_size);
+    
+    //get everything in a buffer
     
     while ((c=get_next_byte(get_next_byte_argument))!=EOF)
     {
@@ -288,7 +365,73 @@ make_command_stream (int (*get_next_byte) (void *),
         }
     }
     
+    
+    
+    //loop through buffer. postfix-infix 
+    //operator stack *char, command stack command struct
+    
+    char **operator_stack=checked_malloc(read_size*sizeof(char*));
+    command_t *command_stack=checked_malloc(read_size*sizeof(char*));
+    
+    int s=0;
+    while (s<read_size)
+    {
+        char c_tmp=buf[s];
+        char operator [3];
+        switch(c_tmp)
+        {
+            case '(':
+                //push onto operator stack
+                break;
+            //operators. check if it's an operator
+            case ';':
+                break;
+            case '|'://check if it's pipe or OR
+                break;
+            case '&':
+                break;
+            case '<'://checked in store_simple_command function?
+                break;
+            case '>':
+                break;
+            
+            //end of operators
+            case ')':
+                break;
+            //&s
+                
+        }
+        if (isWord(c_tmp))
+        {
+            //get the simple command
+            command_t com_tmp=store_simple_command(buf, &s, read_size);
+            //push it onto the command stack
+        }
+        else if (isNotValid(c_tmp))
+        {
+            fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
+            exit(1);
+        }
+        //else if (mayBeOperator(c_tmp)){char*op_tmp=store_operator(buf,&s,read_size)
+        /*Lowest operand to highest precedance operand
+        ; \n
+        && || (and more precedance than ||)
+        | 
+*/
+        s++;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    //end of stacks
     command_stream_t stream=init_stream();
+    
+    
     
     return stream;
     
