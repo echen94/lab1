@@ -32,6 +32,7 @@ bool isWord (char c);
 bool isSpecial (char c);
 bool isNotValid (char c);
 command_t init_command(enum command_type type);
+enum command_type cmd_type(char *cc);
 command_stream_t init_stream();
 command_t store_simple_command (char *c, int *i, size_t size);
 bool mayBeOperator (char c);
@@ -62,6 +63,22 @@ bool isNotValid (char c)
     return ( (c!=' ') && (c!='#') && (c!='\n') && (c!='&') && (!isWord(c)) && (!isSpecial(c)));
 }
 //end of auxiliary functions
+
+
+//initialize command
+enum command_type cmd_type(char *cc)
+{
+    if(!strcmp(cc,"&&")) return AND_COMMAND;
+    if(!strcmp(cc,"||")) return OR_COMMAND;
+    if(!strcmp(cc,"|")) return PIPE_COMMAND;
+    if(!strcmp(cc,";")) return SEQUENCE_COMMAND;
+    if(!strcmp(cc,"(")) return SUBSHELL_COMMAND;
+    else {
+        err(1, "invalid type");
+        return SIMPLE_COMMAND;
+    }
+    
+}
 
 //initialize command
 command_t init_command(enum command_type type)
@@ -450,7 +467,14 @@ make_command_stream (int (*get_next_byte) (void *),
     //loop through buffer. postfix-infix 
     //operator stack *char, command stack command struct
     
-    
+    /*
+     AND_COMMAND,         // A && B
+     SEQUENCE_COMMAND,    // A ; B
+     OR_COMMAND,          // A || B
+     PIPE_COMMAND,        // A | B
+     SIMPLE_COMMAND,      // a simple command
+     SUBSHELL_COMMAND,    // ( A )
+     */
     
     int s=0;
     while (s<read_size)
@@ -466,7 +490,7 @@ make_command_stream (int (*get_next_byte) (void *),
             
             //operators. check if it's an operator
             case ';':
-                if (op_s.len==0)
+                if (op_s.len==0)//if operator stack is empty, push
                     push_op(&op_s, ";");
                 else{
                     while ( (precedence(op_s.operator[op_s.top])>=precedence(";")) &&(strcmp(op_s.operator[op_s.top],"(")!=0))
@@ -514,7 +538,7 @@ make_command_stream (int (*get_next_byte) (void *),
                             char* tmp_op;
                             pop_op(&op_s, tmp_op);
                             command_t tmp=init_command(cmd_type(tmp_op));
-                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd( &cmd_s, tmp->u.command[1]);//if pop is false, return error statement 
                             pop_cmd(&cmd_s, tmp->u.command[0]);
                             push_cmd(&cmd_s, tmp);
                         }
@@ -542,26 +566,10 @@ make_command_stream (int (*get_next_byte) (void *),
                         
                     }
                 }
-                else //it's &
+                else //it's &, print error
                 {
-                    
-                    
-                    if (op_s.len==0)
-                        push_op(&op_s, "&");
-                    else
-                    {
-                        while ( (precedence(op_s.operator[op_s.top])>=precedence("&")) &&(strcmp(op_s.operator[op_s.top],"&")!=0))
-                        {
-                            char* tmp_op;
-                            pop_op(&op_s, tmp_op);
-                            command_t tmp=init_command(cmd_type(tmp_op));
-                            pop_cmd( &cmd_s, tmp->u.command[1]);
-                            pop_cmd(&cmd_s, tmp->u.command[0]);
-                            push_cmd(&cmd_s, tmp);
-                        }
-                        push_op(&op_s, "&");
-                        
-                    }
+                    fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
+                    exit(1);
                 }
                 
 
@@ -574,23 +582,27 @@ make_command_stream (int (*get_next_byte) (void *),
             //end of operators
             case ')':
                 if (op_s.len==0)
-                    push_op(&op_s, ")");
-                else{
-                    while ((strcmp(op_s.operator[op_s.top],")")!=0))
-                    {
-                        char* tmp_op;
-                        pop_op(&op_s, tmp_op);
-                        command_t tmp=init_command(cmd_type(tmp_op));
-                        pop_cmd( &cmd_s, tmp->u.command[1]);
-                        pop_cmd(&cmd_s, tmp->u.command[0]);
+                {
+                    push_op(&op_s, ")");//????
+                    //fprintf(stderr,"line %d: No '(' that matches ')'. \n",line_number);
+                    //exit(1);
+                }
+                else{//need fix
+                    
+                        while ((strcmp(op_s.operator[op_s.top],"(")!=0))
+                        {
+                            char* tmp_op;
+                            pop_op(&op_s, tmp_op);
+                            command_t tmp=init_command(cmd_type(tmp_op));
+                            pop_cmd( &cmd_s, tmp->u.command[1]);
+                            pop_cmd(&cmd_s, tmp->u.command[0]);
+                            push_cmd(&cmd_s, tmp);
+                        }
+                        command_t tmp=init_command(SUBSHELL_COMMAND);
+                        // input u.subshell_cmd[0]== root inside the subshell ??
+                        //more work...
                         push_cmd(&cmd_s, tmp);
                     }
-                    command_t tmp=init_command(SUBSHELL_COMMAND);
-                    // input u.subshell_cmd[0]== root inside the subshell ??
-                    //more work...
-                    push_cmd(&cmd_s, tmp);
-                }
-                
                 break;
             case '#':
                 //skip comment
