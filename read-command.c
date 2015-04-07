@@ -174,7 +174,7 @@ command_t store_simple_command (char *c, int *i, size_t size)
                 exit(1);
             }
         }
-        else if (tmp_c=='>')
+        else if (tmp_c=='>')//what's the precendance on this??
         {
             if (command->output)
             {
@@ -367,7 +367,7 @@ char *get_next_word (char *c, int *i, size_t size)
 
 /*stacks to build the command tree         */
 int OPERATOR_LEN=16;
-int COMMAND_LEN=16;
+int COMMAND_LEN=16;//root of command tree. still 16??
 
 //stack defs
 struct op_stack
@@ -400,7 +400,11 @@ bool push_op(struct op_stack *op, char* cc)
 bool pop_op(struct op_stack *op, char* cc)
 {
     if(op->top==0)
+    {
+        fprintf(stderr,"line %d: The command is not valid. \n",line_number);
+        exit(1);
         return false;
+    }
     else
     {
         cc=op->operator[op->top];
@@ -423,7 +427,12 @@ bool push_cmd(struct cmd_stack *cmd, command_t cc)
 bool pop_cmd(struct cmd_stack *cmd, command_t cc)
 {
     if(cmd->top==0)
+    {
+        //print out there is syntax error and exit
+        fprintf(stderr,"line %d: The command is not valid. \n",line_number);
+        exit(1);
         return false;
+    }
     else
     {
         cc=cmd->command[cmd->top];
@@ -483,6 +492,8 @@ make_command_stream (int (*get_next_byte) (void *),
         //char operator [3];
         switch(c_tmp)
         {
+                //space, tab, new line?
+                //new line: check if next one is new line, if it is create a new command tree?
             case '(':
                 //push onto operator stack
                 push_op(&op_s,"(");
@@ -495,10 +506,10 @@ make_command_stream (int (*get_next_byte) (void *),
                 else{
                     while ( (precedence(op_s.operator[op_s.top])>=precedence(";")) &&(strcmp(op_s.operator[op_s.top],"(")!=0))
                     {
-                        char* tmp_op;
+                        char* tmp_op=NULL;
                         pop_op(&op_s, tmp_op);
                         command_t tmp=init_command(cmd_type(tmp_op));
-                        pop_cmd( &cmd_s, tmp->u.command[1]);
+                        pop_cmd( &cmd_s, tmp->u.command[1]);//output error when nothing in command stack
                         pop_cmd(&cmd_s, tmp->u.command[0]);
                         push_cmd(&cmd_s, tmp);
                     }
@@ -514,7 +525,7 @@ make_command_stream (int (*get_next_byte) (void *),
                     else{
                         while ( (precedence(op_s.operator[op_s.top])>=precedence("||")) &&(strcmp(op_s.operator[op_s.top],"||")!=0))
                         {
-                            char* tmp_op;
+                            char* tmp_op=NULL;
                             pop_op(&op_s, tmp_op);
                             command_t tmp=init_command(cmd_type(tmp_op));
                             pop_cmd( &cmd_s, tmp->u.command[1]);
@@ -535,7 +546,7 @@ make_command_stream (int (*get_next_byte) (void *),
                     {
                         while ( (precedence(op_s.operator[op_s.top])>=precedence("|")) &&(strcmp(op_s.operator[op_s.top],"|")!=0))
                         {
-                            char* tmp_op;
+                            char* tmp_op=NULL;
                             pop_op(&op_s, tmp_op);
                             command_t tmp=init_command(cmd_type(tmp_op));
                             pop_cmd( &cmd_s, tmp->u.command[1]);//if pop is false, return error statement 
@@ -555,7 +566,7 @@ make_command_stream (int (*get_next_byte) (void *),
                     else{
                         while ( (precedence(op_s.operator[op_s.top])>=precedence("&&")) &&(strcmp(op_s.operator[op_s.top],"&&")!=0))
                         {
-                            char* tmp_op;
+                            char* tmp_op=NULL;
                             pop_op(&op_s, tmp_op);
                             command_t tmp=init_command(cmd_type(tmp_op));
                             pop_cmd( &cmd_s, tmp->u.command[1]);
@@ -575,6 +586,7 @@ make_command_stream (int (*get_next_byte) (void *),
 
                 break;
             case '<'://checked in store_simple_command function?
+                //pop the top command and and store as left side? what's the precedance of < and >
                 break;
             case '>':
                 break;
@@ -591,7 +603,7 @@ make_command_stream (int (*get_next_byte) (void *),
                     
                         while ((strcmp(op_s.operator[op_s.top],"(")!=0))
                         {
-                            char* tmp_op;
+                            char* tmp_op=NULL;
                             pop_op(&op_s, tmp_op);
                             command_t tmp=init_command(cmd_type(tmp_op));
                             pop_cmd( &cmd_s, tmp->u.command[1]);
@@ -622,15 +634,17 @@ make_command_stream (int (*get_next_byte) (void *),
         if (isWord(c_tmp))
         {
             //get the simple command
-            command_t com_tmp=store_simple_command(buf, &s, read_size);
+            command_t com_tmp=store_simple_command(buf, &s, read_size);//need to double check this function
             //push it onto the command stack
+            //command_t tmp=init_command(SIMPLE_COMMAND);
+            push_cmd(&cmd_s, com_tmp);
         }
         else if (isNotValid(c_tmp))
         {
             fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
             exit(1);
         }
-        else if (mayBeOperator(c_tmp))
+       /* else if (mayBeOperator(c_tmp))
         {
             char *op=(char *)checked_malloc(sizeof(char)*5);
             op=get_operator(buf, &s, read_size);
@@ -648,13 +662,14 @@ make_command_stream (int (*get_next_byte) (void *),
                 //push new command to command stack
                 //nothing left, pop remaining operators
             }
-        }
+        }*/
         //else if (mayBeOperator(c_tmp)){char*op_tmp=store_operator(buf,&s,read_size)
         /*Lowest operand to highest precedance operand
         ; \n
         && || (and more precedance than ||)
         | 
 */
+        //else?
         s++;
     }
     
