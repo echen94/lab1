@@ -60,7 +60,7 @@ bool isSpecial (char c)
 
 bool isNotValid (char c)
 {
-    return ( (c!=' ') && (c!='#') && (c!='\n') && (c!='&') && (!isWord(c)) && (!isSpecial(c)));
+    return ( (c!=' ') && (c!='\t') && (c!='#') && (c!='\n') && (c!='&') && (!isWord(c)) && (!isSpecial(c)));
 }
 //end of auxiliary functions
 
@@ -106,7 +106,7 @@ command_stream_t init_stream()
 //store operators
 
 
-//create simple command (consists of one or more words)
+//create simple command (consists of one or more words, no operators in between )
 command_t store_simple_command (char *c, int *i, size_t size)
 {
     command_t command= init_command(SIMPLE_COMMAND);
@@ -118,21 +118,13 @@ command_t store_simple_command (char *c, int *i, size_t size)
     while ((*i)<size)
     {
         char tmp_c=c[*i];
-        switch(tmp_c)
+        
+        //if meet operator, then return command
+        if (tmp_c==' ' || tmp_c=='\t')
         {
-            case(' '):
-            case('\t'):
-                (*i)++;
-                break;
-            case('\n'):
-                line_number++;
-                (*i)++;
-                break;
-            default://indirections < >...etc
-                (*i)++;
-                break;
+            (*i)++;
         }
-        if (isWord(tmp_c))
+        else if (isWord(tmp_c))
         {
             char *w=get_next_word(c, i, size);
             
@@ -144,11 +136,34 @@ command_t store_simple_command (char *c, int *i, size_t size)
             command->u.word[count_w]=w;//entire word
             count_w++;
             command->u.word[count_w]=NULL;
-            
         }
-        else if (tmp_c=='#')
+        //can't have comemnt or \n in between (or any operators)
+        else if (isNotValid(tmp_c))
         {
-            //skip comment
+            fprintf(stderr,"line %d: character, '%c', is not valid. \n", line_number, tmp_c );
+            exit(1);
+        }
+        else//meet an operator of any sort or others ...i.e. \n, < >  #
+        {
+            (*i)--;//can deal with it later in make_comamnd_tree function
+            break;
+        }
+        
+    }
+    
+   
+    return command;
+}
+
+
+//char c: start of command. i: index of array
+char *get_next_word (char *c, int *i, size_t size)
+{
+    //get the word, called from store_simple_command
+    /*while ( ((c[*i]==' ') || (c[*i]=='\t') || (c[*i]=='#')) && (*i<size) )//dealt in make_command_tree already
+    {
+        if (c[*i]=='#')
+        {
             while (*i<size)
             {
                 if (c[*i]=='\n')
@@ -159,51 +174,39 @@ command_t store_simple_command (char *c, int *i, size_t size)
                 (*i)++;
             }
         }
-        else if (tmp_c=='<')
-        {
-            if (command->input)
-            {
-                fprintf(stderr,"line %d: There are more than one input. \n",line_number);
-                exit(1);
-            }
-            (*i)++;
-            command->input=get_next_word(c, i, size);
-            if (command->input==NULL)
-            {
-                fprintf(stderr,"line %d: There is no input file name. \n",line_number);
-                exit(1);
-            }
-        }
-        else if (tmp_c=='>')//what's the precendance on this??
-        {
-            if (command->output)
-            {
-                fprintf(stderr,"line %d: There are more than one output. \n",line_number);
-                exit(1);
-            }
-            (*i)++;
-            command->output=get_next_word(c, i, size);
-            if (command->output==NULL)
-            {
-                fprintf(stderr,"line %d: There is no output file name. \n",line_number);
-                exit(1);
-            }
-        }
-        else if (isSpecial(tmp_c))
-        {
-            (*i)++;
-            break;
-        }
-        else if (isNotValid(tmp_c))
-        {
-            fprintf(stderr,"line %d: character, '%c', is not valid. \n", line_number, tmp_c );
-            exit(1);
-        }
-        
+        (*i)++;
     }
     
-    (*i)--;
-    return command;
+    int skipped=*i;*/
+    int size_word=0;
+    
+    char *word=(char *)malloc(sizeof(char)*(size_word+1) );
+    
+    while (isWord(c[*i]) && (*i)<size)
+    {
+        word[size_word]=c[*i];
+        size_word++;
+    }
+       /* size_word++;
+    //int size_word=(*i);//-skipped;
+    
+    if (size_word == 0)
+        return NULL;
+    
+    char *word=(char *)malloc(sizeof(char)*(size_word+1) );
+    
+    int t=0;
+    while (t<size_word)
+    {
+        word[t]=c[t];//skipped+t];
+        t++;
+    }*/
+    word[size_word]='\0';
+    
+    if (c[*i]=='#' || c[*i]=='<' || c[*i]=='>' || c[*i]=='\n' || isSpecial(c[*i]) )
+        (*i)--;//deal with it later
+    
+    return word;
 }
 
 //create subshell command
@@ -213,83 +216,6 @@ command_t store_subshell_command()
     return command;
 }
 
-//create compound command
-command_t store_compound_command()
-{
-    return NULL;
-}
-
-//(mayBeOperator(c_tmp)){char*op_tmp=store_operator(buf,&s,read_size)
-
-bool mayBeOperator (char c)
-{
-    switch (c)
-    {
-            case ';':
-            case '\n':
-            case '&':
-            case '|':
-                return true;
-                break;
-        default:
-            return false;
-    }
- 
-}
-
-char *get_operator (char *c, int *i, size_t size)
-{
-    char *c_tmp=(char *)malloc(sizeof(char)*(3) );
-    char ci=c[*i];
-    char ci2 = '\0';
-    if ((*i+1)<size)
-    {
-        ci2=c[*i+1];
-    }
-    switch (ci)
-    {
-        case ';':
-            c_tmp[0]=';';
-            c_tmp[1]='\0';
-            *i+=1;
-            break;
-         //   strncat(string, &c,1);
-        case '\n':
-            c_tmp[0]='\n';
-            c_tmp[1]='\0';
-            *i+=1;
-            line_number++;
-            break;
-        case '&':
-            if ((*i<size) && (ci2=='&'))
-            {
-                c_tmp="&&";
-                *i+=2;
-            }
-            else
-            {
-                fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,ci);
-                exit(1);
-            }
-            break;
-        case '|':
-            if ((*i<size) && (ci2=='|'))
-            {
-                c_tmp="||";
-                *i+=2;
-            }
-            else
-            {
-                c_tmp[0]='|';
-                c_tmp[1]='\0';
-                *i+=1;
-            }
-            break;
-        default:
-            c_tmp=NULL;
-    }
-    return c_tmp;
-}
 
 //create the tree. operator stack and command stack
 
@@ -316,49 +242,6 @@ int precedence (char *operator)
         return -1;
 }
 
-//char c: start of command. i: index of array
-char *get_next_word (char *c, int *i, size_t size)
-{
-    while ( ((c[*i]==' ') || (c[*i]=='\t') || (c[*i]=='#')) && (*c<size) )
-    {
-        if (c[*i]=='#')
-        {
-            while (*i<size)
-            {
-                if (c[*i]=='\n')
-                {
-                    line_number++;
-                    break;
-                }
-                (*i)++;
-            }
-        }
-        (*i)++;
-    }
-    
-    int skipped=*i;
-    
-    while (isWord(c[*i]) && *i<size)
-        (*i)++;
-    int size_word=(*i)-skipped;
-    
-    if (size_word == 0)
-        return NULL;
-    char *word=(char *)malloc(sizeof(char)*(size_word+1) );
-    
-    int t=0;
-    while (t<size_word)
-    {
-        word[t]=c[skipped+t];
-        t++;
-    }
-    word[size_word]='\0';
-    
-    if (c[*i]=='#' || c[*i]=='<' || c[*i]=='>' || c[*i]=='\n' || isSpecial(c[*i]) )
-        (*i)--;
-    
-    return word;
-}
 
 //get operator function??
 
