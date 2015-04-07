@@ -103,17 +103,13 @@ command_stream_t init_stream()
 }
 
 
-//store operators
-
-
-//create simple command (consists of one or more words, no operators in between )
+//simple command consists of one or more words, with no operators, \n, #...others in between
 command_t store_simple_command (char *c, int *i, size_t size)
 {
     command_t command= init_command(SIMPLE_COMMAND);
     int size_word=1;
     int count_w=0;
     command->u.word=(char**)malloc(sizeof(char*)*size_word);
-    //char *w=get_next_word(c, i, size);
     
     while ((*i)<size)
     {
@@ -137,7 +133,6 @@ command_t store_simple_command (char *c, int *i, size_t size)
             count_w++;
             command->u.word[count_w]=NULL;
         }
-        //can't have comemnt or \n in between (or any operators)
         else if (isNotValid(tmp_c))
         {
             fprintf(stderr,"line %d: character, '%c', is not valid. \n", line_number, tmp_c );
@@ -156,55 +151,34 @@ command_t store_simple_command (char *c, int *i, size_t size)
 }
 
 
-//char c: start of command. i: index of array
+
 char *get_next_word (char *c, int *i, size_t size)
 {
-    //get the word, called from store_simple_command
-    /*while ( ((c[*i]==' ') || (c[*i]=='\t') || (c[*i]=='#')) && (*i<size) )//dealt in make_command_tree already
-    {
-        if (c[*i]=='#')
-        {
-            while (*i<size)
-            {
-                if (c[*i]=='\n')
-                {
-                    line_number++;
-                    break;
-                }
-                (*i)++;
-            }
-        }
-        (*i)++;
-    }
-    
-    int skipped=*i;*/
+
+    int starting=*i;
     int size_word=0;
     
-    char *word=(char *)malloc(sizeof(char)*(size_word+1) );
+    
     
     while (isWord(c[*i]) && (*i)<size)
     {
-        word[size_word]=c[*i];
         size_word++;
+        (*i)++;
     }
-       /* size_word++;
-    //int size_word=(*i);//-skipped;
     
+    char *word=(char *)checked_malloc(sizeof(char)*(size_word+1) );
+
     if (size_word == 0)
         return NULL;
     
-    char *word=(char *)malloc(sizeof(char)*(size_word+1) );
-    
-    int t=0;
-    while (t<size_word)
+    int j=0;
+    while (j<size_word)
     {
-        word[t]=c[t];//skipped+t];
-        t++;
-    }*/
+        word[j]=c[starting+j];
+        j++;
+    }
     word[size_word]='\0';
-    
-    if (c[*i]=='#' || c[*i]=='<' || c[*i]=='>' || c[*i]=='\n' || isSpecial(c[*i]) )
-        (*i)--;//deal with it later
+
     
     return word;
 }
