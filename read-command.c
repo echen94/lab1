@@ -34,7 +34,7 @@ char* get_next_word (char *c, int *i, size_t size);
 void init_op_stack();
 void init_cmd_stack();
 //global variable
-int line_number =0;
+int line_number =1;
 bool wait_input =false; //sign for <
 bool wait_output =false; // >
 //auxiliary functions
@@ -49,7 +49,7 @@ bool isSpecial (char c)
 }
 bool isNotValid (char c)
 {
-    return ( (c!=' ') && (c!='#') && (c!='\n') && (!isWord(c)) && (!isSpecial(c)) );
+    return ( (c!=' ') && (c!='#') && (c!='\n') && (c!='\t') && (!isWord(c)) && (!isSpecial(c)) );
 }
 //end of auxiliary functions
 //initialize command
@@ -285,7 +285,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
     // init operator stack and command stack
     init_op_stack();
     init_cmd_stack();
-    while ((buff[*index])!=EOF)
+    while ((*index)<ssize)//(buff[*index])!=EOF)
     {
         int next= *index+1;// used to detect || &&
         switch (buff[*index]){
@@ -468,7 +468,11 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
             case '\n':
                 line_number++;
                 // more details !!!!
-                if (op_s.top>=cmd_s.top) // a || \n
+                //if (op_s.top==0 && op_s.top==0)
+                //{
+                    
+                //}
+                if (!((op_s.top==0) && (cmd_s.top==0)) && (op_s.top>=cmd_s.top)) // a || \n
                     error(1, 0, "%d: syntax error /n happens with dismatched operator and command", line_number);
                 if(((buff[next]!='(')||buff[next]!=')')&&(isSpecial(buff[next])))
                     error(1, 0, "%d: syntax error /n is before specials other than ( )",line_number);
@@ -482,7 +486,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 //
                 if(wait_input)
                 {
-                    *index=(*index)+1;
+                    *index=(*index)+1;//why incremenet by 1?
                     char* text= get_next_word(buff, index, ssize);
                     int len = sizeof(text)/sizeof(char);
                     cmd_s.command[cmd_s.top-1]->input = (char*) checked_malloc(sizeof(char)*len);
@@ -501,18 +505,27 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     break;
                 }
                 // simple command
-                *index=(*index)+1;
-                command_t tmp=store_simple_command(buff, index, ssize);// things needed
-                push_cmd( tmp);
-                break;
+                //*index=(*index)+1;//why need increment here?
+                if (isWord(buff[*index]))
+                {
+                    int i=cmd_s.top;//debug
+                    printf("%d",i);//debug
+                    command_t tmp=store_simple_command(buff, index, ssize);// things needed
+                    push_cmd( tmp);
+                    int j=cmd_s.top;//debug
+                    printf("%d",j);//debug
+                    break;
+                }
+                
         }
         *index=(*index)+1;
     }
     // pop all operators and commands
+    
     if (op_s.top>=cmd_s.top) {
         error(1, 0, "%d: syntax error /n happens with dismatched operator and command", line_number);
     }
-    while (op_s.top>=0 && cmd_s.top>=0) {
+    while (op_s.top>0 && cmd_s.top>0) {
         char* tmp_op;
         pop_op( tmp_op);
         command_t tmp=init_command(cmd_type(tmp_op));
