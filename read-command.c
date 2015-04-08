@@ -1,81 +1,57 @@
 // UCLA CS 111 Lab 1 command reading
-
 #include "command.h"
 #include "command-internals.h"
-
 #include "alloc.h"
-
-
 #ifdef __APPLE__
 #include <err.h>
 #define error(args...) errc(args)
 #else
 #include <error.h>
 #endif
-
 /* FIXME: You may need to add #include directives, macro definitions,
-   static function definitions, etc.  */
-
+ static function definitions, etc. */
 //additional includes
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-
 //end of additional includes
-
-//#define OPERATOR_LEN 32;
-//#define COMMAND_LEN 16;
-//#define WORD_LEN 16;
-
-int OPERATOR_LEN=32;
-int COMMAND_LEN =16;
-int WORD_LEN =16;
-
-
-/* FIXME: Define the type 'struct command_stream' here.  This should
-   complete the incomplete type declaration in command.h.  */
-
+const int OPERATOR_LEN =16;
+const int COMMAND_LEN =16;
+const int WORD_LEN =16;
+/* FIXME: Define the type 'struct command_stream' here. This should
+ complete the incomplete type declaration in command.h. */
 //auxiliary functions declarations
 bool isWord (char c);
 bool isSpecial (char c);
 bool isNotValid (char c);
-command_t init_command(enum command_type type);
 enum command_type cmd_type(char *cc);
+command_t init_command(enum command_type type);
 command_stream_t init_stream();
 command_t store_simple_command (char *c, int *i, size_t size);
-bool mayBeOperator (char c);
-char *get_operator (char *c, int *i, size_t size);
 int precedence (char *operator);
-char *get_next_word (char *c, int *i, size_t size);
-
-
-
+char* get_next_word (char *c, int *i, size_t size);
+void init_op_stack();
+void init_cmd_stack();
 //global variable
-int line_number;
+int line_number =0;
 bool wait_input =false; //sign for <
 bool wait_output =false; // >
-
 //auxiliary functions
 bool isWord (char c)
 {
     return (isalpha(c) || isdigit(c) || (c == '!') || (c == '%') || (c == '+') || (c == ',') ||
             (c == '-') || (c == '.') || (c == '/') || (c == ':') || (c == '@') || (c == '^') || (c == '_') );
-    
 }
-
 bool isSpecial (char c)
 {
     return ( (c == ';') || (c == '|') || (c == '(') || (c == ')') || (c == '<') || (c == '>') );
 }
-
 bool isNotValid (char c)
 {
-    return ( (c!=' ') && (c!='\t') && (c!='#') && (c!='\n') && (c!='&') && (!isWord(c)) && (!isSpecial(c)));
+    return ( (c!=' ') && (c!='#') && (c!='\n') && (!isWord(c)) && (!isSpecial(c)) );
 }
 //end of auxiliary functions
-
-
 //initialize command
 enum command_type cmd_type(char *cc)
 {
@@ -88,10 +64,7 @@ enum command_type cmd_type(char *cc)
         err(1, "invalid type");
         return SIMPLE_COMMAND;
     }
-    
 }
-
-//initialize command
 command_t init_command(enum command_type type)
 {
     command_t command=(command_t)checked_malloc(sizeof(struct command));
@@ -99,10 +72,18 @@ command_t init_command(enum command_type type)
     command->status=-1;
     command->input=NULL;
     command->output=NULL;
+    command->u.word=NULL;
+    command->u.command[0]=NULL;
+    command->u.command[1]=NULL;
+    command->u.subshell_command=NULL;
+    /* put this inside build command tree
+     if(type == SUBSHELL_COMMAND)
+     {
+     command->u.subshell_command= command_t checked_malloc(sizeof(struct command));
+     }
+     */
     return command;
 }
-
-
 //initialize command stream
 command_stream_t init_stream()
 {
@@ -112,21 +93,40 @@ command_stream_t init_stream()
     stream->cursor=NULL;
     return stream;
 }
-
-
-//simple command consists of one or more words, with no operators, \n...others in between
-command_t store_simple_command (char *c, int *i, size_t size)
+char* get_next_word (char *c, int *i, size_t size )
+{
+    int starting=*i;
+    int size_word=0;
+    while (isWord(c[*i]) && (*i)<size)
+    {
+        size_word++;
+        (*i)++;
+    }
+    char *word=(char *)checked_malloc(sizeof(char)*(size_word+1) );
+    if (size_word == 0)
+        return NULL;
+    int j=0;
+    while (j<size_word)
+    {
+        word[j]=c[starting+j];
+        j++;
+    }
+    word[size_word]='\0';
+    return word;
+}
+//create simple command (consists of one or more words)
+command_t store_simple_command (char *c, int *i, size_t size ) // to avoid similar name with build-in function
 {
     command_t command= init_command(SIMPLE_COMMAND);
     int size_word=1;
     int count_w=0;
     command->u.word=(char**)malloc(sizeof(char*)*size_word);
-    //char *w=get_next_word(c, i, size);
-    
+    // store words instead of store pointers
+    for(int j=0;j<size_word;j++) // j instead of i
+        command->u.word[j]=(char*)malloc(sizeof(char)*size);
     while ((*i)<size)
     {
-        char tmp_c=c[*i];//allocate memory?
-        
+        char tmp_c=c[*i];
         //if meet operator, then return command
         if (tmp_c==' ' || tmp_c=='\t')
         {
@@ -134,9 +134,7 @@ command_t store_simple_command (char *c, int *i, size_t size)
         }
         else if (isWord(tmp_c))
         {
-            //allocate memory?
-            char *w=get_next_word(c, i, size);
-            
+            char* w= get_next_word(c, i, size);
             if (count_w==size_word)
             {
                 size_word=size_word*2;
@@ -146,76 +144,28 @@ command_t store_simple_command (char *c, int *i, size_t size)
             count_w++;
             command->u.word[count_w]=NULL;
         }
-        //can't have comemnt or \n in between (or any operators)
         else if (isNotValid(tmp_c))
         {
             fprintf(stderr,"line %d: character, '%c', is not valid. \n", line_number, tmp_c );
             exit(1);
         }
-        else//meet an operator of any sort or others ...i.e. \n, < >  #
+        else//meet an operator of any sort or others ...i.e. \n, < > #
         {
             (*i)--;//can deal with it later in make_comamnd_tree function
             break;
         }
-        
     }
-    
-   
     return command;
 }
-
-
-
-char *get_next_word (char *c, int *i, size_t size)
-{
-
-    int starting=*i;
-    int size_word=0;
-    
-    
-    
-    while (isWord(c[*i]) && (*i)<size)
-    {
-        size_word++;
-        (*i)++;
-    }
-    
-    char *word=(char *)checked_malloc(sizeof(char)*(size_word+1) );
-
-    if (size_word == 0)
-        return NULL;
-    
-    int j=0;
-    while (j<size_word)
-    {
-        word[j]=c[starting+j];
-        j++;
-    }
-    word[size_word]='\0';
-
-    
-    return word;
-}
-
-//create subshell command
-command_t store_subshell_command()
-{
-    command_t command= init_command(SUBSHELL_COMMAND);
-    return command;
-}
-
-
-//create the tree. operator stack and command stack
-
 //precedance
 int precedence (char *operator)
 {
- /*
-  lowest --> highest
-  ; \n    1
-  &&/||   2
-  |       3
-*/
+    /*
+     lowest --> highest
+     ; \n 1
+     &&/|| 2
+     | 3
+     */
     if (strcmp(operator,";")==0)
         return 1;
     else if (strcmp(operator,"\n")==0)
@@ -229,40 +179,14 @@ int precedence (char *operator)
     else
         return -1;
 }
-
-
-//get operator function??
-
-//implement stacks
-
-
-/*stacks to build the command tree         */
-//int OPERATOR_LEN=16;
-//int COMMAND_LEN=16;//root of command tree. still 16??
-
-//stack defs
-/*
-struct op_stack{
-    char** operator;
-    int len;
-    int top;
-    
-}op_s;
-*/
-/*
-struct cmd_stack{
-    command_t* command;
-    int len;
-    int top;
-}cmd_s;
-*/
-
+//***********************************************************************************
+//build command tree
+//stack def
 struct op_stack{
     char** operator;
     int len;
     int top;
 }op_s; // global var
-
 void init_op_stack()
 {
     op_s.len=OPERATOR_LEN;
@@ -270,11 +194,9 @@ void init_op_stack()
     op_s.operator=(char**)checked_malloc(op_s.len*sizeof(char*));
     for(int i=0;i<op_s.len;i++)
     {
-        op_s.operator[i]=(char*)checked_malloc((OPERATOR_LEN)*sizeof(char));
+        op_s.operator[i]=(char*)checked_malloc(OPERATOR_LEN*sizeof(char));
     }
 }
-
-
 struct cmd_stack{
     command_t* command;
     int len;
@@ -288,13 +210,25 @@ void init_cmd_stack(){
         cmd_s.command[i]=(command_t)checked_malloc(sizeof(struct command));
     }
 }
-
-
-//push pop
 void push_op(char* cc)
 {
     if (op_s.len==(op_s.top)) // get larger space
-    
+    /*
+     tmp = (char**)checked_malloc(op_s.len*sizeof(char*));
+     for(int i=0;i<op_s.len;i++)
+     tmp[i]=op_s.operater[i];
+     int l=op_s.len;
+     free(op_s);// ?
+     op_s=(char**)checked_grow_alloc(op_s.len*sizeof(char*));
+     op_s.len=2*l;
+     for (int i=0; i<op_s.len; i++) {
+     op_s[i]=(char*) checked_malloc(OPERATOR_LEN*sizeof(char));
+     if(i<l)
+     strcpy(op_s.operator[i],tmp[i]);
+     }
+     free(tmp);//
+     op_s.top=l;
+     }*/
     {
         op_s.operator=(char**) realloc(op_s.operator, op_s.len*2*sizeof(char*));
         for (int i=op_s.len; i<2*op_s.len; i++)
@@ -304,19 +238,6 @@ void push_op(char* cc)
     op_s.top++;
     strcpy(op_s.operator[op_s.top-1],cc);
 }
-/*
-bool push_op(struct op_stack *op, char* cc)
-{
-    if (op->len==op->top)
-        return false;
-    else{
-        op->top++;
-        op->operator[op->top]=cc;
-        return true;
-    }
-}
-*/
-
 void pop_op(char* cc)
 {
     if (op_s.top==0) {
@@ -327,35 +248,6 @@ void pop_op(char* cc)
         op_s.top--;
     }
 }
-/*
-bool pop_op(struct op_stack *op, char* cc)
-{
-    if(op->top==0)
-    {
-        fprintf(stderr,"line %d: The command is not valid. \n",line_number);
-        exit(1);
-        return false;
-    }
-    else
-    {
-        cc=op->operator[op->top];
-        op->top--;
-        return true;
-    }
-}
-*/
-/*
-bool push_cmd(struct cmd_stack *cmd, command_t cc)
-{
-    if (cmd->len==cmd->top)
-        return false;
-    else{
-        cmd->top++;
-        cmd->command[cmd->top]=cc;
-        return true;
-    }
-}
- */
 void push_cmd( command_t cc)
 {
     if (cmd_s.len==cmd_s.top) { // get larger space
@@ -378,24 +270,6 @@ void push_cmd( command_t cc)
     cmd_s.top++;
     cmd_s.command[cmd_s.top-1]=cc; // copy store
 }
-/*
-bool pop_cmd(struct cmd_stack *cmd, command_t cc)
-{
-    if(cmd->top==0)
-    {
-        //print out there is syntax error and exit
-        fprintf(stderr,"line %d: The command is not valid. \n",line_number);
-        exit(1);
-        return false;
-    }
-    else
-    {
-        cc=cmd->command[cmd->top];
-        cmd->top--;
-        return true;
-    }
-}
-*/
 void pop_cmd(command_t cc)
 {
     if (cmd_s.top==0) {
@@ -405,8 +279,8 @@ void pop_cmd(command_t cc)
         cmd_s.top--;
     }
 }
-
-command_t build_command_t(char* buff, int* index, size_t size)
+//********************************************************
+command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--read_size
 {
     // init operator stack and command stack
     init_op_stack();
@@ -540,7 +414,6 @@ command_t build_command_t(char* buff, int* index, size_t size)
                 else
                     error(1, 0, "%d: syntax error invalid & ", line_number);
                 break;
-                
             case ')':
                 if (op_s.top>=cmd_s.top) {
                     error(1, 0, "%d: syntax error: dismatched operator and command",line_number);
@@ -610,7 +483,7 @@ command_t build_command_t(char* buff, int* index, size_t size)
                 if(wait_input)
                 {
                     *index=(*index)+1;
-                    char * text= get_next_word(buff, index, size);
+                    char* text= get_next_word(buff, index, ssize);
                     int len = sizeof(text)/sizeof(char);
                     cmd_s.command[cmd_s.top-1]->input = (char*) checked_malloc(sizeof(char)*len);
                     strcpy(cmd_s.command[cmd_s.top-1]->input, text); // undefined text
@@ -620,7 +493,7 @@ command_t build_command_t(char* buff, int* index, size_t size)
                 if(wait_output)
                 {
                     *index=(*index)+1;
-                    char * text= get_next_word(buff, index,size);
+                    char* text= get_next_word(buff, index, ssize);
                     int len = sizeof(text)/sizeof(char);
                     cmd_s.command[cmd_s.top-1]->output = (char*) checked_malloc(sizeof(char)*len);
                     strcpy(cmd_s.command[cmd_s.top-1]->output, text); // undefined text
@@ -629,7 +502,7 @@ command_t build_command_t(char* buff, int* index, size_t size)
                 }
                 // simple command
                 *index=(*index)+1;
-                command_t tmp=store_simple_command(buff, index,size);// things needed
+                command_t tmp=store_simple_command(buff, index, ssize);// things needed
                 push_cmd( tmp);
                 break;
         }
@@ -653,19 +526,14 @@ command_t build_command_t(char* buff, int* index, size_t size)
     }
     return cmd_s.command[0];
 }
-
-/*make command stream              */
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
-		     void *get_next_byte_argument)
+                     void *get_next_byte_argument)
 {
     size_t buf_size=2048;
     size_t read_size=0;
     int c;
     char *buf=checked_malloc(buf_size);
-    
-    //get everything in a buffer
-    
     while ((c=get_next_byte(get_next_byte_argument))!=EOF)
     {
         buf[read_size++]=c;
@@ -675,17 +543,16 @@ make_command_stream (int (*get_next_byte) (void *),
             buf=(char*)checked_grow_alloc(buf,&buf_size );
         }
     }
-    
     command_stream_t stream=init_stream();
     struct command_node* tmp_node= (struct command_node*) checked_malloc(sizeof(struct command_node));
     command_t tmp=NULL;
     int index=0 ;
-    tmp_node->c=build_command_t(buf,&index, read_size);
+    tmp_node->c=build_command_t(buf,&index,read_size );
     tmp_node->next=NULL;
     stream->head=tmp_node;
     stream->cursor=tmp_node;
     stream->tail=tmp_node;
-    tmp=build_command_t(buf, &index,read_size);
+    tmp=build_command_t(buf, &index, read_size);
     while(tmp!=NULL){
         stream->cursor->next =(struct command_node*) checked_malloc(sizeof(struct command_node));
         tmp_node->c = tmp;
@@ -693,213 +560,17 @@ make_command_stream (int (*get_next_byte) (void *),
         // space alloc???
         stream->cursor->next = tmp_node;
         stream->cursor= stream->cursor->next;
-        tmp=build_command_t(buf, &index,read_size);
+        tmp=build_command_t(buf, &index, read_size);
     }
     stream->tail=stream->cursor;
+    stream->cursor=stream->head;
     return stream;
-    /*
-    
-    
-    //initialize operator stack and command stack
-    op_s.operator=checked_malloc(OPERATOR_LEN*sizeof(char));
-    op_s.len=0;
-    op_s.top=0;
-    
-    cmd_s.command=checked_malloc(COMMAND_LEN*sizeof(command_t));
-    cmd_s.len=0;
-    cmd_s.top=0;
-    
-    
-    int s=0;
-    while (s<read_size)
-    {
-        char c_tmp=buf[s];
-        //char operator [3];
-        if ((c_tmp==' ') || (c_tmp=='\t'))
-        {
-            s++;
-        }
-        else if (c_tmp=='\n')//need to deal with double \n
-        {
-            line_number++;
-            s++;
-        }
-        else if (c_tmp=='(')
-        {
-            push_op(&op_s,"(");
-            s++;
-        }
-        else if (c_tmp==';')
-        {
-            if (op_s.len==0)//if operator stack is empty, push
-                push_op(&op_s, ";");
-            else
-            {
-                while ( (precedence(op_s.operator[op_s.top])>=precedence(";")) &&(strcmp(op_s.operator[op_s.top],"(")!=0))
-                {
-                    char* tmp_op=NULL;
-                    pop_op(&op_s, tmp_op);
-                    command_t tmp=init_command(cmd_type(tmp_op));
-                    pop_cmd( &cmd_s, tmp->u.command[1]);//output error when nothing in command stack
-                    pop_cmd(&cmd_s, tmp->u.command[0]);
-                    push_cmd(&cmd_s, tmp);
-                }
-                push_op(&op_s, ";");
-                s++;
-            }
-        }else if (c_tmp=='|')
-        {
-            if ( (s+1)<read_size && buf[s+1]=='|')//it's ||
-            {
-                if (op_s.len==0)
-                    push_op(&op_s, "||");
-                else{
-                    while ( (precedence(op_s.operator[op_s.top])>=precedence("||")) &&(strcmp(op_s.operator[op_s.top],"||")!=0))
-                    {
-                        char* tmp_op=NULL;
-                        pop_op(&op_s, tmp_op);
-                        command_t tmp=init_command(cmd_type(tmp_op));
-                        pop_cmd( &cmd_s, tmp->u.command[1]);
-                        pop_cmd(&cmd_s, tmp->u.command[0]);
-                        push_cmd(&cmd_s, tmp);
-                    }
-                    push_op(&op_s, "||");
-                    
-                }
-                s+=2;
-            }
-            else //it's |
-            {
-                
-                
-                if (op_s.len==0)
-                    push_op(&op_s, "|");
-                else
-                {
-                    while ( (precedence(op_s.operator[op_s.top])>=precedence("|")) &&(strcmp(op_s.operator[op_s.top],"|")!=0))
-                    {
-                        char* tmp_op=NULL;
-                        pop_op(&op_s, tmp_op);
-                        command_t tmp=init_command(cmd_type(tmp_op));
-                        pop_cmd( &cmd_s, tmp->u.command[1]);//if pop is false, return error statement
-                        pop_cmd(&cmd_s, tmp->u.command[0]);
-                        push_cmd(&cmd_s, tmp);
-                    }
-                    push_op(&op_s, "|");
-                    
-                }
-                s++;
-            }
-            break;
-
-        }else if (c_tmp=='&')
-        {
-            if ( (s+1)<read_size && buf[s+1]=='&')//it's &&
-            {
-                if (op_s.len==0)
-                    push_op(&op_s, "&&");
-                else{
-                    while ( (precedence(op_s.operator[op_s.top])>=precedence("&&")) &&(strcmp(op_s.operator[op_s.top],"&&")!=0))
-                    {
-                        char* tmp_op=NULL;
-                        pop_op(&op_s, tmp_op);
-                        command_t tmp=init_command(cmd_type(tmp_op));
-                        pop_cmd( &cmd_s, tmp->u.command[1]);
-                        pop_cmd(&cmd_s, tmp->u.command[0]);
-                        push_cmd(&cmd_s, tmp);
-                    }
-                    push_op(&op_s, "&&");
-                    
-                }
-                s+=2;
-            }
-            else //it's &, print error
-            {
-                fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
-                exit(1);
-            }
-        }else if (c_tmp=='<')
-        {
-            
-        }else if (c_tmp=='>')
-        {
-            
-        }else if (c_tmp==')')
-        {
-            if (op_s.len==0)
-            {
-                push_op(&op_s, ")");//????
-                //fprintf(stderr,"line %d: No '(' that matches ')'. \n",line_number);
-                //exit(1);
-            }
-            else{//need fix
-                
-                while ((strcmp(op_s.operator[op_s.top],"(")!=0))
-                {
-                    char* tmp_op=NULL;
-                    pop_op(&op_s, tmp_op);
-                    command_t tmp=init_command(cmd_type(tmp_op));
-                    pop_cmd( &cmd_s, tmp->u.command[1]);
-                    pop_cmd(&cmd_s, tmp->u.command[0]);
-                    push_cmd(&cmd_s, tmp);
-                }
-                command_t tmp=init_command(SUBSHELL_COMMAND);
-                // input u.subshell_cmd[0]== root inside the subshell ??
-                //more work...
-                push_cmd(&cmd_s, tmp);
-            }
-
-        }else if (c_tmp=='#')
-        {
-            while (s<read_size)
-            {
-                if (buf[s]=='\n')
-                {
-                    line_number++;
-                    break;
-                }
-                (s)++;
-            }
-        
-        }
-        else if (isWord(c_tmp))
-        {
-            command_t com_tmp=store_simple_command(buf, &s, read_size);//need to double check this function
-            push_cmd(&cmd_s, com_tmp);
-        }
-        else if (isNotValid(c_tmp))
-        {
-            fprintf(stderr,"line %d: The character '%c' is not valid. \n",line_number,c_tmp);
-            exit(1);
-        }
-
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-    //end of stacks
-    command_stream_t stream=init_stream();
-    
-    
-    
-    return stream;
-     
-     */
-    
-  /* FIXME: Replace this with your implementation.  You may need to
+    /* FIXME: Replace this with your implementation. You may need to
      add auxiliary functions and otherwise modify the source code.
-     You can also use external functions defined in the GNU C Library.  */
-    
-    
-  //error (1, 0, "command reading not yet implemented");
-  //return 0;
+     You can also use external functions defined in the GNU C Library. */
+    //error (1, 0, "command reading not yet implemented");
+    //return 0;
 }
-    
 command_t
 read_command_stream (command_stream_t s)
 {
@@ -910,6 +581,4 @@ read_command_stream (command_stream_t s)
     command_t tmp=s->cursor->c;
     s->cursor=s->cursor->next;
     return tmp;
-    
-  
 }
