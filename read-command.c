@@ -464,6 +464,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 line_number++;
                 break;
             case ' ':
+            case '\t':
                 break;
             case '\n':
                 line_number++;
@@ -509,32 +510,43 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 if (isWord(buff[*index]))
                 {
                     int i=cmd_s.top;//debug
-                    printf("%d",i);//debug
+                    printf("first%d\n",i);//debug
                     command_t tmp=store_simple_command(buff, index, ssize);// things needed
                     push_cmd( tmp);
                     int j=cmd_s.top;//debug
-                    printf("%d",j);//debug
+                    printf("second%d\n",j);//debug
                     break;
                 }
                 
         }
         *index=(*index)+1;
+        int j=cmd_s.top;//debug
+                printf("third%d\n",j);//debug
     }
     // pop all operators and commands
+    //if (op_s.top==0 && cmd_s.top==0)
+    //{
+      //  return NULL;
+    //}
     
-    if (op_s.top>=cmd_s.top) {
+    int j=cmd_s.top;//debug
+    printf("forth%d\n",j);//debug
+    if (op_s.top>cmd_s.top) {
         error(1, 0, "%d: syntax error /n happens with dismatched operator and command", line_number);
     }
-    while (op_s.top>0 && cmd_s.top>0) {
+    while ( !(cmd_s.top==1 && op_s.top==0) && (op_s.top>0 && cmd_s.top>0)) {//need edits, when it's not only one command left in stack, go in the loop
         char* tmp_op;
-        pop_op( tmp_op);
+        pop_op( tmp_op);//if test script is "a", it causes invalid pop //if command top =1 and operator =0 , then create simple command
         command_t tmp=init_command(cmd_type(tmp_op));
         pop_cmd( tmp->u.command[1]);
         pop_cmd(tmp->u.command[0]);
         push_cmd( tmp);
         free(tmp);
+        
+        int j=cmd_s.top;//debug
+        printf("fifth%d\n",j);//debug
     }
-    if ((op_s.top!=0)||(cmd_s.top!=1)) {
+    if ( ((op_s.top!=0)||(cmd_s.top!=1))) {
         error(1, 0, "%d: syntax error dismatched operator and command", line_number);
     }
     return cmd_s.command[0];
@@ -560,21 +572,52 @@ make_command_stream (int (*get_next_byte) (void *),
     struct command_node* tmp_node= (struct command_node*) checked_malloc(sizeof(struct command_node));
     command_t tmp=NULL;
     int index=0 ;
-    tmp_node->c=build_command_t(buf,&index,read_size );
+    //tmp_node->c=build_command_t(buf,&index,read_size );//why build command tree so many times? top got decremented second time we call build_command_t
     tmp_node->next=NULL;
     stream->head=tmp_node;
     stream->cursor=tmp_node;
     stream->tail=tmp_node;
-    tmp=build_command_t(buf, &index, read_size);
-    while(tmp!=NULL){
+    //tmp=build_command_t(buf, &index, read_size);
+    //tmp_node->c=tmp;
+    //while(tmp!=NULL){//call build_command_t twice unneccassarily
+    //bool first_build=false;
+    
+    while ((tmp=build_command_t(buf, &index, read_size))!=NULL)
+    {
         stream->cursor->next =(struct command_node*) checked_malloc(sizeof(struct command_node));
         tmp_node->c = tmp;
         tmp_node->next = NULL;
         // space alloc???
         stream->cursor->next = tmp_node;
         stream->cursor= stream->cursor->next;
-        tmp=build_command_t(buf, &index, read_size);
     }
+        
+    
+    //need to change the while loop here somehow...go through a simple test script like just "a"
+      /*  do {
+        stream->cursor->next =(struct command_node*) checked_malloc(sizeof(struct command_node));
+        tmp_node->c = tmp;
+        tmp_node->next = NULL;
+        // space alloc???
+        stream->cursor->next = tmp_node;
+        stream->cursor= stream->cursor->next;
+            if ((first_build==false) && (tmp==NULL))
+            {
+                tmp=build_command_t(buf, &index, read_size);
+                printf("here1");//debug
+                first_build=true;
+            }
+            else if (tmp!=NULL)
+            {
+                tmp=build_command_t(buf, &index, read_size);
+                printf("here2");//debug
+            }
+            printf("here3");//debug
+
+            
+        }while (tmp!=NULL);*/
+    
+    
     stream->tail=stream->cursor;
     stream->cursor=stream->head;
     return stream;
