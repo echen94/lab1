@@ -439,7 +439,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                         {
                             char* tmp_op=(char*) malloc(OPERATOR_LEN*sizeof(char));;
                             pop_op( tmp_op);
-                            printf("@@%s %d",tmp_op,op_s.top);
+                           
                             command_t tmp=init_command(cmd_type(tmp_op));
                             pop_cmd( tmp->u.command[1]);
                             pop_cmd(tmp->u.command[0]);
@@ -455,10 +455,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     if (buff[*index+1]=='\n') {
                         line_number++;
                     }
-                    if (line_number==20) {
-                        printf("%c",buff[*index+1]);
-                        
-                    }
+                    
                     *index=*index+1;
                 }
                 
