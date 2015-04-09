@@ -569,9 +569,9 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     
                     error(1, 0, "%d: syntax error 17 /n is before specials other than ( )",line_number);
                 
-                // regard as ; a /n b
-                if (buff[*index-1]!='\n' && (buff[*index +1]!='\n') &&(*index-1>=0)&&(*index+1<ssize)) {
-                    if (op_s.top>=cmd_s.top &&(cmd_s.top>0)) {
+                // regard as ; a /n b//check if *index-1>=0 and *index+1<ssize first in if statement
+                if ((*index-1>=0)&&(*index+1<ssize) && buff[*index-1]!='\n' && (buff[*index +1]!='\n') ) {
+                    if ((cmd_s.top>0) && op_s.top>=cmd_s.top) {
                         error(1, 0, "%d: syntax error 18 dismatched operator and command", line_number);
                     }
                     
@@ -597,7 +597,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 // \n \n as a break return a tree
                 if ((next<ssize)&&buff[next]=='\n') {
                     // skip all the \n
-                    while(((buff[(*index)+1]=='\n')||(buff[*index+1]=='\t')||(buff[*index+1]==' '))&& (*index<ssize -1))
+                    while( (*index<ssize -1)&&((buff[(*index)+1]=='\n')||(buff[*index+1]=='\t')||(buff[*index+1]==' ')))//what about comment?
                     {
                         if (buff[(*index)+1]=='\n')
                             line_number++;
