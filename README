@@ -1,4 +1,9 @@
-This is a skeleton for CS 111 Lab 1.
+Group Members:
+Evelyn Chen 704332587
+Hannah ____ _________
 
-Replace this README file with notes on your implementation.
-Mentions any special features or limitations.
+Implementations:
+
+1A:
+
+We implemented the read-command.c by first getting characters from the file and forming a buffer character array. Then, we go through the character array and use one operator stack and one command stack to keep track of the precedence of the operators and build the command tree. We have a store_simple_command and get_next_word auxiliary functions that help store the simple commands. 

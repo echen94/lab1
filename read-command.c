@@ -78,7 +78,7 @@ enum command_type cmd_type(char *cc)
     if(!strcmp(cc,";")) return SEQUENCE_COMMAND;
     if(!strcmp(cc,"(")) return SUBSHELL_COMMAND;
     else {
-        err(1, "invalid type");
+        error(1, 0, "%d: invalid type", line_number);
         return SIMPLE_COMMAND;
     }
     
@@ -172,8 +172,7 @@ command_t store_simple_command (char *c, int *i, size_t size ) // to avoid simil
         }
         else if (isNotValid(tmp_c))
         {
-            fprintf(stderr,"line %d: character, '%c', is not valid. \n", line_number, tmp_c );
-            exit(1);
+            error(1, 0, "%d: character, '%c', is not valid. ", line_number,tmp_c);
         }
         else//meet an operator of any sort or others ...i.e. \n, < > #
         {
