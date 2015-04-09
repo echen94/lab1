@@ -685,23 +685,23 @@ make_command_stream (int (*get_next_byte) (void *),
     }
     
     command_stream_t stream=init_stream();
-    struct command_node* tmp_node= (struct command_node*) checked_malloc(sizeof(struct command_node));
+    stream->head= (struct command_node*) checked_malloc(sizeof(struct command_node));
     command_t tmp=NULL;
     int index=0 ;
-    tmp_node->c=build_command_t(buf,&index,read_size );
-    tmp_node->next=NULL;
+     stream->head->c=build_command_t(buf,&index,read_size );
+     stream->head->next=NULL;
     
-    stream->head=tmp_node;
-    stream->cursor=tmp_node;
-    stream->tail=tmp_node;
+   
+    stream->cursor= stream->head;
+    stream->tail= stream->head;
     tmp=build_command_t(buf, &index, read_size);
     while(tmp!=NULL){
         stream->cursor->next =(struct command_node*) checked_malloc(sizeof(struct command_node));
-        tmp_node->c  = tmp;
-        tmp_node->next = NULL;
-        // space alloc???
-        stream->cursor->next = tmp_node;
-        stream->cursor= stream->cursor->next;
+        
+        stream->cursor->next->c=tmp;
+        stream->cursor->next->next=NULL;
+        stream->cursor=stream->cursor->next;
+        
         tmp=build_command_t(buf, &index, read_size);
     }
     stream->tail=stream->cursor;
