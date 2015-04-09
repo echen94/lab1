@@ -466,7 +466,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
             case ' ':
             case '\t':
                 break;
-            case '\n':
+            case '\n'://check if we find another operand, create another command tree...etc 
                 line_number++;
                 // more details !!!!
                 //if (op_s.top==0 && op_s.top==0)
