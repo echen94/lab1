@@ -18,6 +18,7 @@
 #include<stdlib.h>
 //#include<sys/wait.h>
 #include<stdio.h>
+#include<string.h>
 
 void execute_simple(command_t c);
 void execute_sequence(command_t c);
@@ -89,7 +90,15 @@ void execute_simple(command_t c)// c->word
         if(fd[1]>=0)
             if(dup2(fd[1],1) <0)
                 error(1,0,"can't write output file");
-        execvp(c->u.word[0],c->u.word);// 0!!
+        //need to deal with special case when first word is "exec". in this case, execvp calls u.word[1], and &u.word[1]
+        if (strcmp(c->u.word[0],"exec")==0)
+        {
+            execvp(c->u.word[1],&(c->u.word[1]));
+        }
+        else
+        {
+            execvp(c->u.word[0],c->u.word);// 0!!
+        }
         exit(127);// when fails
         
     }
