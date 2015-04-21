@@ -72,13 +72,13 @@ void execute_simple(command_t c)// c->word
     int fd[2];
     if (c->input != NULL)
     {
-        fd[0] = open(c->input, O_RDONLY);
+        fd[0] = open(c->input, O_RDONLY,644);//set for permission? like 644
         if (fd[0] < 0)// 0 1 2
             error(1, 0, "can't open input file");
     }
     if (c->output != NULL)
     {
-        fd[1] = open(c->output, O_WRONLY | O_CREAT | O_TRUNC);
+        fd[1] = open(c->output, O_WRONLY | O_CREAT | O_TRUNC,644);
         if (fd[1] < 0)
             error(1, 0, "can't open output file");
     }
@@ -184,7 +184,7 @@ void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
     int p=fork();
     int fd[2]={-1,-1};
     if(c->input!=NULL)
-        fd[0]=open(c->input,O_RDONLY);//READ FILE
+        fd[0]=open(c->input,O_RDONLY,644);//READ FILE
     if(c->output !=NULL)
         fd[1]=open(c->output, O_CREAT|O_TRUNC|O_WRONLY,0644);//OWNER|GROUP|OTHER
     
