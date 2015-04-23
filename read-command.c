@@ -49,7 +49,6 @@ int count_left_bracket=0;
 int line_number =1;
 bool wait_input =false; //sign for <
 bool wait_output =false; // >
-bool first_comment=true;
 
 //auxiliary functions
 bool isWord (char c)
@@ -534,9 +533,13 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 break;
                 
             case '#': // skip comments
+                //can't have ordinary taken right before this. will be error
+                if ((*index-1>=0)&&(buff[*index-1]!=' '&&buff[*index-1]!='\t'&&buff[*index-1]!='\n'))
+                    {
+                        error(1,0,"%d: syntax error: ordinary token right before #",line_number);
+                    }
                 
-                
-                
+                //
                 while((*index<ssize)&&(buff[*index]=='#'))//skip all comments
                 {
                     *index=*index+1;
@@ -546,21 +549,23 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     }
                     
                     if (*index != ssize) {
-                        if (buff[*index+1]==' '||buff[*index+1]=='\t')
-                        {
-                            *index=*index+1;
-                        }
                         // skip all \n following # and index points to the last \n
+                        if (buff[*index+1]==' '||buff[*index+1]=='\t')
+                            *index=*index+1;
+                        
                         while(((*index+1)<ssize) &&(buff[*index+1]=='\n'))
                         {
-                            if (first_comment==false)
+                            if(op_s.top>0|| cmd_s.top>0){
+                                //	printf("%d %d",op_s.top,cmd_s.top);
                                 isReturn= true;
+                            }
                             line_number++;
                             *index=*index+1;
                         }
+                        if(*index<ssize-1 && buff[*index]=='\n')
+                            *index=*index+1;
+                        
                         line_number++;
-                        *index=*index+1;
-                        first_comment=false;
                     }
                 }
                 *index=*index-1;
@@ -580,7 +585,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     error(1, 0, "%d: syntax error 17 /n is before specials other than ( )",line_number);
                 
                 // regard as ; a /n b
-                if (buff[*index-1]!='\n' && (buff[*index +1]!='\n') &&(*index-1>=0)&&(*index+1<ssize)) {
+                if (cmd_s.top>0 && buff[*index-1]!='\n' && (buff[*index +1]!='\n') &&(*index-1>=0)&&(*index+1<ssize)) {
                     
                     
                     if (op_s.top ==0)
@@ -622,7 +627,8 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     }
                     
                     // return a tree
-                    isReturn=true;
+                    if(op_s.top>0 || cmd_s.top>0)
+                        isReturn=true;
                 }
                 
                 break;
@@ -695,8 +701,8 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
     if (op_s.top==0 && (cmd_s.top==0)) {
         return NULL;
     }
-    if ((op_s.top!=0)||(cmd_s.top!=1)) //
-        error(1, 0, "%d: syntax error 22 dismatched operator and command", line_number);
+   // if ((op_s.top!=0)||(cmd_s.top!=1)) //
+     //   error(1, 0, "%d: syntax error 22 dismatched operator and command", line_number);
     
     return cmd_s.command[0];
     
