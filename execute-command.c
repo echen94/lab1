@@ -16,9 +16,16 @@
 #include<unistd.h>
 #include<fcntl.h>
 #include<stdlib.h>
-//#include<sys/wait.h>
+#include<sys/wait.h>
+#include <sys/types.h>
 #include<stdio.h>
 #include<string.h>
+
+/*
+ int close(pid ) 0:close successfully 1: failed
+ waitpid(pid,int *status,option) return pid and set status as child process exit_status
+ WEXITSTATUS() return exit_no of child process
+ */
 
 void execute_simple(command_t c);
 void execute_sequence(command_t c);
@@ -69,7 +76,8 @@ execute_command (command_t c, bool time_travel)
 void execute_simple(command_t c)// c->word
 {
     int p=fork();
-    int fd[2];
+    
+    int fd[2]={-1,-1};
     if (c->input != NULL)
     {
         fd[0] = open(c->input, O_RDONLY,644);//set for permission? like 644
@@ -82,6 +90,8 @@ void execute_simple(command_t c)// c->word
         if (fd[1] < 0)
             error(1, 0, "can't open output file");
     }
+    if(p<0)
+        error(1,0,"fork failed: simple");
     if(p==0)// child process
     {
         if(fd[0]>=0)
@@ -99,20 +109,22 @@ void execute_simple(command_t c)// c->word
         {
             execvp(c->u.word[0],c->u.word);// 0!!
         }
-        exit(127);// when fails
+        _exit(127);// when fails, stop child process
         
     }
-    else{
+    else if(p>0){
         int status;
-        if(waitpid(p,&status,0)<0)// 0: blocking wait
+        if(waitpid(p,&status,0)<0)// 0: blocking wait father process call wait
             error(1,0 ,"waited process error");
-        int exit_status=WEXITSTATUS(status);
+        c->status=WEXITSTATUS(status);
+        
         if(fd[0]>=0)
             close(fd[0]);
         if(fd[1]>=0)
             close(fd[1]);
-        c->status=exit_status;
+        // c->status=exit_status;
     }
+    
 }
 // which order?
 void execute_and(command_t c)// c->command[2]
@@ -120,61 +132,112 @@ void execute_and(command_t c)// c->command[2]
     int p=fork();
     if(p==0){
         execute_command(c->u.command[0],1);
+        _exit(c->u.command[0]->status);
     }
-    else{
+    else if(p>0){
         int status;
-        waitpid(p,&status,0);
+        
+        if(waitpid(p,&status,0)<0)//wait for child process exit to get signal
+            error(1,0,"waited process error");
+        //waitpid return the pid of child process
         int exit_status=WEXITSTATUS(status);// in lib # include<sys/wait.h> 0-127
         if(exit_status==0)// successfully run
         {
             int q=fork();
+            if(q<0)
+                error(1,0,"fork failed: and 2");
             if(q==0)
+            {
                 execute_command(c->u.command[1],1);//execute status of right side
+                _exit(c->u.command[1]->status);
+            }
+            
+            else {
+                if(waitpid(p,&status,0)<0)//wait for child process exit to get signal
+                    error(1,0,"waited process error");
+                exit_status=WEXITSTATUS(status);
+                c->status=exit_status;
+            }
+            
         }
-        else if (exit_status!=0)
+        else if (exit_status>0)//first command run unsuccessfully
         {
             c->status=exit_status;//set exit status to child process
         }
         
     }
+    else
+        error(1,0,"fork failed: and 1");
 }
 void execute_or(command_t c)// c->command[2]
 {
     int p=fork();
+    if(p<0)
+        error(1,0,"fork failed: or 1");
+    
     if(p==0){
         execute_command(c->u.command[0],1);
+        _exit(c->u.command[0]->status);
     }
-    else{
+    else { // p>0 parent process
         int status;
-        waitpid(p,&status,0);
+        if(waitpid(p,&status,0))
+            error(1,0,"waited process error");
+        
         int exit_status=WEXITSTATUS(status);// in lib # include<sys/wait.h> 0-127
-        if(exit_status!=0)// unsuccessfully run
+        if(exit_status!=0)// unsuccessfully run, then run second process
         {
             int q=fork();
+            if(q<0)
+                error(1,0,"fork failed: or 2");
             if(q==0)
+            {
                 execute_command(c->u.command[1],1);
+                _exit(c->u.command[1]->status);
+            }
+            else
+            {
+                if(waitpid(q,&status,0)<0)
+                    error(1,0,"waited process error");
+                c->status=WEXITSTATUS(status);
+            }
         }
-        else if (exit_status==0)
-            c->status=exit_status;
+        else
+            c->status=exit_status;// only depend on the first process
         
     }
+    
+    
 }
+
 void execute_sequence(command_t c) // wait for child to exit
 {
     int p=fork();
+    if(p<0)
+        error(1,0,"fork failed: sequence 1");
+    
     if(p==0){
-        execute_command(c->u.command[1],1);
+        execute_command(c->u.command[0],1);
+        _exit(c->u.command[0]->status);
     }
-    else{
+    else {
+        int status;
+        if(waitpid(p,&status,0)<0)
+            error(1,0,"waited process error");
+        //	c->status=WEXITSTATUS(status);// wait until the second process exit
         int q=fork();
+        if(q<0)
+            error(1,0,"fork failed: sequence 2");
         if(q==0)
-            execute_command(c->u.command[0],1);
-        else{
-            int status;
+        {
+            execute_command(c->u.command[1],1);
+            _exit(c->u.command[1]->status);
+        }
+        else { // p>0 q>0 parent process
+            
             if(waitpid(p,&status,0)<0)// 0: blocking wait
                 error(1,0 ,"waited process error");
-            int exit_status=WEXITSTATUS(status);
-            c->status=exit_status;// another??!!!
+            c->status=WEXITSTATUS(status);// another??!!!
         }
     }
     
@@ -184,22 +247,39 @@ void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
     int p=fork();
     int fd[2]={-1,-1};
     if(c->input!=NULL)
+    {
         fd[0]=open(c->input,O_RDONLY,644);//READ FILE
+        if(fd[0]<0)
+            error(1,0,"can not open input file!");
+    }
     if(c->output !=NULL)
+    {
         fd[1]=open(c->output, O_CREAT|O_TRUNC|O_WRONLY,0644);//OWNER|GROUP|OTHER
+        if(fd[1] <0)
+            error(1,0,"can not open output file!");
+    }
     
-    if(p==0){
+    if(p<0)
+        error(1,0,"fork failed subshell");
+    
+    if(p==0){ //fork successfully
         if(fd[0]>=0)
-            if(dup2(fd[0],0)<0) error(1,0,"in open input file");
-        if(fd[1] >=0)
-        {
-            if(dup2(fd[1],1)<0) error(1,0,"in open output file");
-        }
-        
+            if(dup2(fd[0],0)<0) error(1,0,"dup2 error input file");
+        if(fd[1]>=0)
+            if(dup2(fd[1],1)<0) error(1,0,"dup2 error in output file");
         
         execute_command(c->u.subshell_command,1);
-   
+        _exit(c->u.subshell_command->status); //
+        
     }
+    else {
+        int status;
+        if(waitpid(p,&status,0)<0)
+            error(1,0,"waited process error!");
+        c->status = WEXITSTATUS(status);
+        
+    }
+    
     if(fd[0]>=0) close(fd[0]);
     if(fd[1]>=0) close(fd[1]);
     
@@ -207,20 +287,25 @@ void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
 void execute_pipe(command_t c)// c->command[2]
 {
     int fd[2];
-    //from office hour
+    //pipe(fd): creat a pipe and fill fd[0]=reading fd[1]: writing
+    //______________
+    //______________
+    //fd[1]	       fd[0]
+    //secondpid      firstpid
+    // no need to call waitpid since the firstpid will wait in the pipe
     if (pipe(fd)<0)//to replace the pipe(fd) below
-        error(1,0,"pipe fail");
+        error(1,0,"pipe fd fail");
     pid_t firstpid=fork();
     
     if (firstpid<0)
-    {
-        error(1,0,"forkfail");
-    }
+        error(1,0,"fork failed: pipe 1");
+    
     if (firstpid==0)//execute right side of the pipe
     {
-        close(fd[1]);
+        if(fd[1]>=0)
+            close(fd[1]);
         if (dup2(fd[0],0)<0)
-            error(1,0,"dup2 fail");//check validity
+            error(1,0,"dup2 fail in pipe");//check validity
         execute_command(c->u.command[1],1);//TA code doesn't have time travel 1, no need this for 1B
         _exit(c->u.command[1]->status);//propogate exit status to the parent
     }
@@ -228,19 +313,22 @@ void execute_pipe(command_t c)// c->command[2]
     {
         pid_t secondpid=fork();
         if (secondpid<0)
-            error(1,0,"fork fail");
+            error(1,0,"fork fail: pipe 2");
         if (secondpid==0)//child 2 is using fd[1], so close fd[0]
         {
-            close (fd[0]);
+            if(fd[0]>=0)
+                close (fd[0]);
             if (dup2(fd[1],1)<0)
-                error(1,0,"dup2 fail");
+                error(1,0,"dup2 fail in pipe");
             execute_command(c->u.command[0],1);
             _exit(c->u.command[0]->status);
         }
         else//parent
         {
-            close(fd[0]);
-            close(fd[1]);
+            if(fd[0]>=0)
+                close(fd[0]);
+            if(fd[1]>=0)
+                close(fd[1]);
             int status;
             pid_t returnpid=waitpid(-1,&status,0);//
             if (secondpid==returnpid)
@@ -251,5 +339,5 @@ void execute_pipe(command_t c)// c->command[2]
         }
     }
     
-
+    
 }

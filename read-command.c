@@ -49,6 +49,7 @@ int count_left_bracket=0;
 int line_number =1;
 bool wait_input =false; //sign for <
 bool wait_output =false; // >
+bool first_comment=true;
 
 //auxiliary functions
 bool isWord (char c)
@@ -494,7 +495,10 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 
                 if ((strcmp(op_s.operator[0],"(")) &&(op_s.top==0)) {
                     error(1, 0, "%d: syntax error 11-2 \n appears in wrong place", line_number);
+                    
                 }
+                pop_op();
+                
                 count_left_bracket--;
                 // (  )
                 command_t tmp3=init_command(SUBSHELL_COMMAND);
@@ -530,14 +534,36 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 break;
                 
             case '#': // skip comments
-                *index=(*index)+1;
-                while ((*index<ssize)&&(buff[*index] !='\n')) {
-                    *index=(*index)+1;
-                }
-                if (*index != ssize) {
-                    line_number++;
-                }
                 
+                
+                
+                while((*index<ssize)&&(buff[*index]=='#'))//skip all comments
+                {
+                    *index=*index+1;
+                    // reach the end of each comment line
+                    while ((*index<ssize)&&(buff[*index] !='\n')) {
+                        *index=(*index)+1;
+                    }
+                    
+                    if (*index != ssize) {
+                        if (buff[*index+1]==' '||buff[*index+1]=='\t')
+                        {
+                            *index=*index+1;
+                        }
+                        // skip all \n following # and index points to the last \n
+                        while(((*index+1)<ssize) &&(buff[*index+1]=='\n'))
+                        {
+                            if (first_comment==false)
+                                isReturn= true;
+                            line_number++;
+                            *index=*index+1;
+                        }
+                        line_number++;
+                        *index=*index+1;
+                        first_comment=false;
+                    }
+                }
+                *index=*index-1;
                 break;
             case ' ':
                 break;
@@ -575,12 +601,23 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     }
                 }
                 // \n \n as a break return a tree
-                if ((next<ssize)&&buff[next]=='\n') {
+                while((*index+1<ssize)&&(buff[*index+1]==' '|| buff[*index+1]=='\t'))
+                    *index=*index+1;
+                
+                if ((*index+1<ssize)&&(buff[*index+1]=='\n' || buff[*index+1]=='#')) {
                     // skip all the \n
-                    while(((buff[(*index)+1]=='\n')||(buff[*index+1]=='\t')||(buff[*index+1]==' '))&& (*index<ssize -1))
+                    while(((buff[(*index)+1]=='\n')||(buff[*index+1]=='#')||(buff[*index+1]=='\t')||(buff[*index+1]==' '))&& (*index<ssize -1))
                     {
                         if (buff[(*index)+1]=='\n')
                             line_number++;
+                        else if(buff[*index+1]=='#')
+                        {
+                            while((*index+1<ssize)&&(buff[*index+1]!='\n'))
+                            {
+                                *index=*index+1;
+                            }
+                            line_number++;
+                        }
                         *index=*index+1;
                     }
                     
@@ -688,14 +725,21 @@ make_command_stream (int (*get_next_byte) (void *),
     stream->head= (struct command_node*) checked_malloc(sizeof(struct command_node));
     command_t tmp=NULL;
     int index=0 ;
-     stream->head->c=build_command_t(buf,&index,read_size );
-     stream->head->next=NULL;
+    stream->head->c=build_command_t(buf,&index,read_size );
+    stream->head->next=NULL;
     
-   
+    
     stream->cursor= stream->head;
     stream->tail= stream->head;
     tmp=build_command_t(buf, &index, read_size);
     while(tmp!=NULL){
+        /*	if(tmp==NULL)
+         {
+         if(index==read_size-1)
+         break;
+         tmp=build_command_t(buf,&index,read_size);
+         continue;
+         }*/
         stream->cursor->next =(struct command_node*) checked_malloc(sizeof(struct command_node));
         
         stream->cursor->next->c=tmp;
