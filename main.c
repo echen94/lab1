@@ -63,19 +63,40 @@ main (int argc, char **argv)
 
   command_t last_command = NULL;
   command_t command;
+    
+    
+    /***********add the if else statement *********/
+    //add the time_travel case, can parallelize with the -t flag
+if (time_travel)
+{
+    /*
+     dependency_graph* graph=create_graph(command_stream); //inside read_command.c
+     int final_status=0;
+     final_status=execute_graph(graph); //inside execute_command.c
+     return final_status;
+     
+     
+     */
+}
+else
+{
+    
   while ((command = read_command_stream (command_stream)))
     {
       if (print_tree)
-	{
+      {
 	  printf ("# %d\n", command_number++);
 	  print_command (command);
-	}
+      }
       else
-	{
+      {
 	  last_command = command;
-	  execute_command (command, time_travel);
-	}
+        execute_command (command);
+      }
     }
 
   return print_tree || !last_command ? 0 : command_status (last_command);
+
+}
+
 }

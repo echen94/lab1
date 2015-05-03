@@ -40,7 +40,7 @@ command_status (command_t c)
 }
 
 void
-execute_command (command_t c, bool time_travel)
+execute_command (command_t c)
 {
     /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
@@ -75,21 +75,21 @@ execute_command (command_t c, bool time_travel)
 
 void execute_simple(command_t c)// c->word
 {
-    int p=fork();
     
     int fd[2]={-1,-1};
     if (c->input != NULL)
     {
-        fd[0] = open(c->input, O_RDONLY,644);//set for permission? like 644
+        fd[0] = open(c->input, O_RDONLY,0777);//set for permission? like 644
         if (fd[0] < 0)// 0 1 2
-            error(1, 0, "can't open input file");
+            error(1, 0, "can't open input file simple");
     }
     if (c->output != NULL)
     {
-        fd[1] = open(c->output, O_WRONLY | O_CREAT | O_TRUNC,644);
+        fd[1] = open(c->output, O_WRONLY | O_CREAT | O_TRUNC,0644);
         if (fd[1] < 0)
-            error(1, 0, "can't open output file");
+            error(1, 0, "can't open output file simple");
     }
+    int p=fork();
     if(p<0)
         error(1,0,"fork failed: simple");
     if(p==0)// child process
@@ -117,13 +117,14 @@ void execute_simple(command_t c)// c->word
         if(waitpid(p,&status,0)<0)// 0: blocking wait father process call wait
             error(1,0 ,"waited process error simple");
         c->status=WEXITSTATUS(status);
-        
-        if(fd[0]>=0)
-            close(fd[0]);
-        if(fd[1]>=0)
-            close(fd[1]);
-        // c->status=exit_status;
     }
+    
+    if(fd[0]>=0)
+        close(fd[0]);
+    if(fd[1]>=0)
+        close(fd[1]);
+    // c->status=exit_status;
+    
     
 }
 // which order?
@@ -131,7 +132,7 @@ void execute_and(command_t c)// c->command[2]
 {
     int p=fork();
     if(p==0){
-        execute_command(c->u.command[0],1);
+        execute_command(c->u.command[0]);
         _exit(c->u.command[0]->status);
     }
     else if(p>0){
@@ -148,7 +149,7 @@ void execute_and(command_t c)// c->command[2]
                 error(1,0,"fork failed: and 2");
             if(q==0)
             {
-                execute_command(c->u.command[1],1);//execute status of right side
+                execute_command(c->u.command[1]);//execute status of right side
                 _exit(c->u.command[1]->status);
             }
             
@@ -176,7 +177,7 @@ void execute_or(command_t c)// c->command[2]
         error(1,0,"fork failed: or 1");
     
     if(p==0){
-        execute_command(c->u.command[0],1);
+        execute_command(c->u.command[0]);
         _exit(c->u.command[0]->status);
     }
     else { // p>0 parent process
@@ -192,7 +193,7 @@ void execute_or(command_t c)// c->command[2]
                 error(1,0,"fork failed: or 2");
             if(q==0)
             {
-                execute_command(c->u.command[1],1);
+                execute_command(c->u.command[1]);
                 _exit(c->u.command[1]->status);
             }
             else
@@ -217,7 +218,7 @@ void execute_sequence(command_t c) // wait for child to exit
         error(1,0,"fork failed: sequence 1");
     
     if(p==0){
-        execute_command(c->u.command[0],1);
+        execute_command(c->u.command[0]);
         _exit(c->u.command[0]->status);
     }
     else {
@@ -230,7 +231,7 @@ void execute_sequence(command_t c) // wait for child to exit
             error(1,0,"fork failed: sequence 2");
         if(q==0)
         {
-            execute_command(c->u.command[1],1);
+            execute_command(c->u.command[1]);
             _exit(c->u.command[1]->status);
         }
         else { // p>0 q>0 parent process
@@ -244,7 +245,7 @@ void execute_sequence(command_t c) // wait for child to exit
 }
 void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
 {
-    int p=fork();
+    
     int fd[2]={-1,-1};
     if(c->input!=NULL)
     {
@@ -258,7 +259,7 @@ void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
         if(fd[1] <0)
             error(1,0,"can not open output file!");
     }
-    
+    int p=fork();
     if(p<0)
         error(1,0,"fork failed subshell");
     
@@ -268,7 +269,7 @@ void execute_subshell(command_t c)// c->subshell_command->(word,command[2])
         if(fd[1]>=0)
             if(dup2(fd[1],1)<0) error(1,0,"dup2 error in output file");
         
-        execute_command(c->u.subshell_command,1);
+        execute_command(c->u.subshell_command);
         _exit(c->u.subshell_command->status); //
         
     }
@@ -306,7 +307,7 @@ void execute_pipe(command_t c)// c->command[2]
             close(fd[1]);
         if (dup2(fd[0],0)<0)
             error(1,0,"dup2 fail in pipe");//check validity
-        execute_command(c->u.command[1],1);//TA code doesn't have time travel 1, no need this for 1B
+        execute_command(c->u.command[1]);//TA code doesn't have time travel 1, no need this for 1B
         _exit(c->u.command[1]->status);//propogate exit status to the parent
     }
     else //parent execute this code
@@ -320,7 +321,7 @@ void execute_pipe(command_t c)// c->command[2]
                 close (fd[0]);
             if (dup2(fd[1],1)<0)
                 error(1,0,"dup2 fail in pipe");
-            execute_command(c->u.command[0],1);
+            execute_command(c->u.command[0]);
             _exit(c->u.command[0]->status);
         }
         else//parent
@@ -341,3 +342,54 @@ void execute_pipe(command_t c)// c->command[2]
     
     
 }
+
+
+
+/*************time travel*****************/
+
+//void execute_no_dependency(queue* no_dependency);
+//void execute_dependency(queue* dependency);
+
+//int execute_graph(dependency_graph){}
+
+void execute_no_dependency(struct queue* no_dependency)
+{
+    ;
+    /*
+     pseudo-code:
+     for each GraphNode i in no_dependencies
+        Pid_t pid=fork()
+        if(pid==0)
+        {
+            execute_command(i->command tree)
+            exit 0;
+        }
+        else
+        {
+            i->pid=pid;
+        }
+     
+     */
+}
+
+void execute_dependency(struct queue* dependency)
+{
+    ;
+    /*
+     pseudo code:
+     
+     for each GraphNode i in dependencies
+        int status
+        for each GraphNode j in i->before
+        waitpid(j->pid, &status,0);
+        pid_t pid=fork();
+        if(pid==0)
+            execute_command(i->command)
+            exit(0)
+        else
+            i->pid=pid;
+
+     */
+}
+
+//other edge cases? after list?
