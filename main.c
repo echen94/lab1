@@ -64,19 +64,21 @@ main (int argc, char **argv)
   command_t last_command = NULL;
   command_t command;
     
+    dependency_t create_graph(command_stream_t s);
+    int execute_graph(dependency_t graph);
     
     /***********add the if else statement *********/
     //add the time_travel case, can parallelize with the -t flag
 if (time_travel)
 {
-    /*
-     dependency_graph* graph=create_graph(command_stream); //inside read_command.c
+    
+     dependency_t graph=create_graph(command_stream); //inside read_command.c
      int final_status=0;
      final_status=execute_graph(graph); //inside execute_command.c
      return final_status;
      
      
-     */
+    
 }
 else
 {

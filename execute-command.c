@@ -352,10 +352,44 @@ void execute_pipe(command_t c)// c->command[2]
 
 //int execute_graph(dependency_graph){}
 
-void execute_no_dependency(struct queue* no_dependency)
+void execute_no_dependency(queue_t no_dependency);
+void execute_dependency(queue_t dependency);
+
+int execute_graph(dependency_t dependency_graph)
 {
-    ;
+    execute_no_dependency(dependency_graph->no_dependency);
+    execute_dependency(dependency_graph->depedency);
+    return 0;///
+}
+
+void execute_no_dependency(queue_t no_dependency)
+{
+    queue_node_t queue_node_cursor=no_dependency->head;
+    while (queue_node_cursor->next != NULL)
+    {
+        pid_t pid=fork();
+        if (pid==0)
+        {
+            execute_command(queue_node_cursor->g->command);
+            exit(0);
+        }
+        else
+        {
+            queue_node_cursor->g->pid=pid;
+        }
+        //
+        queue_node_cursor=queue_node_cursor->next;
+    }
+    
     /*
+     graph_node_t graph_node_cursor=no_dependency->head->g;
+     while (graph_node_cursor->next!=NULL)
+     {
+     
+        graph_node_cursor=graph_node_cursor->next;
+     }
+     //graph node 
+     
      pseudo-code:
      for each GraphNode i in no_dependencies
         Pid_t pid=fork()
@@ -372,9 +406,29 @@ void execute_no_dependency(struct queue* no_dependency)
      */
 }
 
-void execute_dependency(struct queue* dependency)
+void execute_dependency(queue_t dependency)
 {
-    ;
+    queue_node_t queue_node_cursor=dependency->head;
+    while (queue_node_cursor->next != NULL)
+    {
+        int status;
+        //for each graph node j in i->before
+        //   struct graph_node** before;
+        //loop through pointer of pointer 
+        pid_t pid=fork();
+        if (pid==0)
+        {
+            execute_command(queue_node_cursor->g->command);
+            exit(0);
+        }
+        else
+        {
+            queue_node_cursor->g->pid=pid;
+        }
+        //
+        queue_node_cursor=queue_node_cursor->next;
+    }
+    //graph node
     /*
      pseudo code:
      

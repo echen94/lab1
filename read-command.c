@@ -803,7 +803,7 @@ read_command_stream (command_stream_t s)
 
 void process_command(command_t c);
 
- struct dependency_graph create_graph(command_stream_t s)
+dependency_t create_graph(command_stream_t s)
  {
      command_t command;
      

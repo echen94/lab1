@@ -100,7 +100,7 @@ struct queue_node
     struct queue_node *next;
 };
 
-struct queue //linked list of command node
+struct queue //linked list of queue node 
 {
     struct queue_node* head;
     struct queue_node* tail;
