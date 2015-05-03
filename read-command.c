@@ -801,14 +801,28 @@ read_command_stream (command_stream_t s)
 //dependency_graph create_graph(command_stream_t c_stream){}
 //void process_command(command_t c){}
 
-void process_command(command_t c);
+void process_command(command_t cmd);
+
+//need fix: each tree has separate read/write list
+char ** read_list;
+char ** write_list;
+int read_list_index;
+int write_list_index;
 
 dependency_t create_graph(command_stream_t s)
  {
      command_t command;
      
+    // read_list_index=0;
+    // write_list_index=0;
+     
+     
      while ((command = read_command_stream (s)))//for each command tree
      {
+         read_list_index=0;
+         write_list_index=0;
+         //each tree has separate read/write list?
+         
          //1. given root node, extract input field, recursively call on command 0 and command 1. generate RL, WL for command tree
          process_command(command);//command is the root node of each command tree
          
@@ -821,19 +835,37 @@ dependency_t create_graph(command_stream_t s)
        
          
      }
-     return;//
+     dependency_t d;//
+     return d;//
  }
 
 void process_command(command_t cmd)
 {
     if (cmd->type==SIMPLE_COMMAND)
     {
-        ;//store cmd->input, cmd->u.word[1] into readlist (filter out options?)
+        read_list=(char**)checked_grow_alloc(read_list, (size_t*)((sizeof(char*))*100));//size?
+        read_list[read_list_index]=cmd->input;//allocate space for read_list[index] first?
+        
+        write_list=(char**)checked_grow_alloc(write_list, (size_t*)((sizeof(char*))*100));//size?
+        write_list[write_list_index]=cmd->output;
+        
+        read_list_index++;
+        write_list_index++;
+        
+        //store cmd->input, cmd->u.word[1] into readlist (filter out options?), read list is **char?
         //store cmd->output into writelist
     }
     else if (cmd->type==SUBSHELL_COMMAND)
     {
-        ;//store cmd->input into readlist
+        read_list=(char**)checked_grow_alloc(read_list, (size_t*)((sizeof(char*))*100));//size?
+        read_list[read_list_index]=cmd->input;
+        
+        write_list=(char**)checked_grow_alloc(write_list, (size_t*)((sizeof(char*))*100));//size?
+        write_list[write_list_index]=cmd->output;
+        
+        read_list_index++;
+        write_list_index++;
+        //store cmd->input into readlist
         //store cmd->output into writelist
         process_command(cmd->u.subshell_command);
     }

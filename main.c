@@ -17,6 +17,9 @@
 static char const *program_name;
 static char const *script_name;
 
+dependency_t create_graph(command_stream_t s);
+int execute_graph(dependency_t graph);
+
 static void
 usage (void)
 {
@@ -64,8 +67,8 @@ main (int argc, char **argv)
   command_t last_command = NULL;
   command_t command;
     
-    dependency_t create_graph(command_stream_t s);
-    int execute_graph(dependency_t graph);
+   // dependency_t create_graph(command_stream_t s);
+    //int execute_graph(dependency_t graph);
     
     /***********add the if else statement *********/
     //add the time_travel case, can parallelize with the -t flag

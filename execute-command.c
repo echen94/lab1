@@ -414,19 +414,24 @@ void execute_dependency(queue_t dependency)
         int status;
         //for each graph node j in i->before
         //   struct graph_node** before;
-        //loop through pointer of pointer 
-        pid_t pid=fork();
-        if (pid==0)
+        //loop through pointer of pointer
+        //know the size of the before list
+        for (int i=0; i<queue_node_cursor->g->size_before_list;i++)
         {
-            execute_command(queue_node_cursor->g->command);
-            exit(0);
+            waitpid(queue_node_cursor->g->before[i]->pid,&status,0);
+            pid_t pid=fork();
+            if(pid==0)
+            {
+                execute_command(queue_node_cursor->g->command);
+                exit(0);
+            }
+            else
+            {
+                queue_node_cursor->g->pid=pid;
+            
+            }
         }
-        else
-        {
-            queue_node_cursor->g->pid=pid;
-        }
-        //
-        queue_node_cursor=queue_node_cursor->next;
+
     }
     //graph node
     /*
