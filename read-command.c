@@ -826,6 +826,8 @@ dependency_t create_graph(command_stream_t s)
          //1. given root node, extract input field, recursively call on command 0 and command 1. generate RL, WL for command tree
          process_command(command);//command is the root node of each command tree
          
+         read_list[read_list_index]=NULL;//set last one as NULL
+         
          //2. check if there is dependency between this current command tree and all command trees before it. update the before list
          //1) create a new graph node to store this command tree
          //2) create a list node {graph node, RL, WL}
@@ -835,7 +837,7 @@ dependency_t create_graph(command_stream_t s)
        
          
      }
-     dependency_t d;//
+     dependency_t d;//temporarily. not correct.
      return d;//
  }
 
@@ -843,30 +845,46 @@ void process_command(command_t cmd)
 {
     if (cmd->type==SIMPLE_COMMAND)
     {
-        read_list=(char**)checked_grow_alloc(read_list, (size_t*)((sizeof(char*))*100));//size?
-        read_list[read_list_index]=cmd->input;//allocate space for read_list[index] first?
-        
-        write_list=(char**)checked_grow_alloc(write_list, (size_t*)((sizeof(char*))*100));//size?
-        write_list[write_list_index]=cmd->output;
-        
+        read_list=(char**)checked_malloc(sizeof(char*)*100);//assume 100 words in read list. allocate space here? or elsewhere?
+        read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);//assume word length is at most 100
+        read_list[read_list_index]=cmd->input;
         read_list_index++;
+
+        //store word[1]...word[n]
+        //store options (starting with dash - )
+        //word list ends with null
+        
+        int i=1; //store from word[1]
+        while (cmd->u.word[i]!=NULL)
+        {
+            read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);
+            read_list[read_list_index]=cmd->u.word[i];
+            read_list_index++;
+            i++;
+        }
+        
+        write_list=(char**)checked_malloc(sizeof(char*)*100);//assume 100 words in write list. allocate space here? or elsewhere?
+        write_list[write_list_index]=(char*)checked_malloc(sizeof(char)*100);//assume word length is at most 100
+        write_list[write_list_index]=cmd->output;
         write_list_index++;
         
-        //store cmd->input, cmd->u.word[1] into readlist (filter out options?), read list is **char?
-        //store cmd->output into writelist
+        
     }
+    
     else if (cmd->type==SUBSHELL_COMMAND)
     {
-        read_list=(char**)checked_grow_alloc(read_list, (size_t*)((sizeof(char*))*100));//size?
+        
+        read_list=(char**)checked_malloc(sizeof(char*)*100);
+        read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);
         read_list[read_list_index]=cmd->input;
         
-        write_list=(char**)checked_grow_alloc(write_list, (size_t*)((sizeof(char*))*100));//size?
+        write_list=(char**)checked_malloc(sizeof(char*)*100);
+        write_list[write_list_index]=(char*)checked_malloc(sizeof(char)*100);
         write_list[write_list_index]=cmd->output;
         
         read_list_index++;
         write_list_index++;
-        //store cmd->input into readlist
-        //store cmd->output into writelist
+        
         process_command(cmd->u.subshell_command);
     }
     else

@@ -91,6 +91,7 @@ struct graph_node
     command_t command;
     struct graph_node** before;
     pid_t pid;
+    //
     int size_before_list;//
     
 };
