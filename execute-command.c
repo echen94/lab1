@@ -365,6 +365,15 @@ int execute_graph(dependency_t dependency_graph)
 void execute_no_dependency(queue_t no_dependency)
 {
     queue_node_t queue_node_cursor=no_dependency->head;
+    if (queue_node_cursor==NULL)
+        return;
+    if (queue_node_cursor->next==NULL)//only one command tree /////
+    {
+            execute_command(queue_node_cursor->g->command);
+            exit(0);
+
+        
+    }
     while (queue_node_cursor->next != NULL)
     {
         pid_t pid=fork();
@@ -410,6 +419,14 @@ int execute_dependency(queue_t dependency)
 {
     queue_node_t queue_node_cursor=dependency->head;
     int status=-1;
+    //check if cursor is null. if null, then just return status
+    if (queue_node_cursor==NULL)
+        return status;
+    if (queue_node_cursor->next==NULL)//only one tree
+    {
+        execute_command(queue_node_cursor->g->command);
+        exit(0);
+    }
     while (queue_node_cursor->next != NULL)
     {
         
