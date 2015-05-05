@@ -374,7 +374,7 @@ void execute_no_dependency(queue_t no_dependency)
 
         
     }
-    while (queue_node_cursor->next != NULL)
+    while (queue_node_cursor->next != NULL)//something wrong here for echo a echo b echo c as three separate trees
     {
         pid_t pid=fork();
         if (pid==0)

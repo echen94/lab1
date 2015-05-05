@@ -980,13 +980,15 @@ dependency_t create_graph(command_stream_t s)
             if (d->no_dependency->head==NULL) {
                 d->no_dependency->head = init_queue_node();
                 d->no_dependency->head->g=stream->cursor->graph_node;
-                d->no_dependency->cursor=d->no_dependency->head;
+                d->no_dependency->cursor=d->no_dependency->head;//set last one as NULL
+                d->no_dependency->cursor->next=NULL;//
             }
             else
             {
                 d->no_dependency->cursor->next = init_queue_node();
                 d->no_dependency->cursor->next->g= stream->cursor->graph_node;
-                d->no_dependency->cursor =d->no_dependency->cursor->next;
+                d->no_dependency->cursor =d->no_dependency->cursor->next;//stored values already
+                d->no_dependency->cursor->next=NULL;//
             }
             
         }
@@ -997,12 +999,14 @@ dependency_t create_graph(command_stream_t s)
                 d->dependency->head = init_queue_node();
                 d->dependency->head->g=stream->cursor->graph_node;
                 d->dependency->cursor=d->dependency->head;
+                d->dependency->cursor->next=NULL;//
             }
             else
             {
                 d->dependency->cursor->next = init_queue_node();
                 d->dependency->cursor->next->g= stream->cursor->graph_node;
-                d->dependency->cursor =d->dependency->cursor->next;
+                d->dependency->cursor =d->dependency->cursor->next;//set last one as NULL
+                d->dependency->cursor->next=NULL;//
             }
         }
         command_t_no++;
