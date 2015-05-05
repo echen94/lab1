@@ -8,6 +8,8 @@ typedef struct dependency_graph *dependency_t;//////////time travel
 typedef struct queue *queue_t;////time travel
 typedef struct graph_node *graph_node_t;//time travel
 typedef struct queue_node *queue_node_t;//time travel
+typedef struct list_stream *list_stream_t;
+typedef struct list_node *list_node_t;
 
 /* Create a command stream from GETBYTE and ARG.  A reader of
    the command stream will invoke GETBYTE (ARG) to get the next byte.

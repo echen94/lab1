@@ -26,6 +26,7 @@
 const int  OPERATOR_LEN =8;
 const int WORD_LEN =16;
 const int INT_STACK_LEN=16;
+const int MAX_BEFORE=20;
 
 /* FIXME: Define the type 'struct command_stream' here.  This should
  complete the incomplete type declaration in command.h.  */
@@ -794,106 +795,285 @@ read_command_stream (command_stream_t s)
     return tmp;
     //return NULL;
 }
-
+;
 
 
 /****************time travel************/
+
 //dependency_graph create_graph(command_stream_t c_stream){}
 //void process_command(command_t c){}
 
-void process_command(command_t cmd);
+void process_command(list_node_t node, command_t command, int *index_r, int * index_w);
+bool haveDependency(list_node_t A,list_node_t B);
+bool intersect(char ** a, char** b);
 
 //need fix: each tree has separate read/write list
-char ** read_list;
-char ** write_list;
+char ** read_list[10]={0};
+char ** write_list[10]={0};
 int read_list_index;
 int write_list_index;
 
-dependency_t create_graph(command_stream_t s)
- {
-     command_t command;
-     
-    // read_list_index=0;
-    // write_list_index=0;
-     
-     
-     while ((command = read_command_stream (s)))//for each command tree
-     {
-         read_list_index=0;
-         write_list_index=0;
-         //each tree has separate read/write list?
-         
-         //1. given root node, extract input field, recursively call on command 0 and command 1. generate RL, WL for command tree
-         process_command(command);//command is the root node of each command tree
-         
-         read_list[read_list_index]=NULL;//set last one as NULL
-         
-         //2. check if there is dependency between this current command tree and all command trees before it. update the before list
-         //1) create a new graph node to store this command tree
-         //2) create a list node {graph node, RL, WL}
-         
-         //3.check if before list is NULL, then update the dependency graph
-         
-       
-         
-     }
-     dependency_t d;//temporarily. not correct.
-     return d;//
- }
-
-void process_command(command_t cmd)
+int command_t_no=1;// set the number of command tree
+// read_list : a char ** for each tree
+bool haveDependency(list_node_t A,list_node_t B)
 {
-    if (cmd->type==SIMPLE_COMMAND)
-    {
-        read_list=(char**)checked_malloc(sizeof(char*)*100);//assume 100 words in read list. allocate space here? or elsewhere?
-        read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);//assume word length is at most 100
-        read_list[read_list_index]=cmd->input;
-        read_list_index++;
+    //if B is after A
+    //intersect RAW
+    //!( A->wl && B->rl ==empty)
+    if (intersect(A->write_list, B->read_list)) {
+        return true;
+    }
+    // WAW
+    //!( A->wl && B->wl ==empty)
+    if (intersect(A->write_list, B->write_list)) {
+        return true;
+    }
+    // WAR
+    //!( A->rl && B->wl ==empty)
+    if (intersect(A->read_list, B->write_list)) {
+        return true;
+    }
+    return false;
+    
+}
+bool intersect(char ** a, char** b)
+{
+    if (a==NULL || b== NULL) {
+        return false;
+    }
+    else{
+        for (int i=0; a[i]!=NULL; i++) {
+            for (int j=0; b[j]!=NULL; j++) {
+                if (strcmp(a[i], b[j])==0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+//inital list stream
 
-        //store word[1]...word[n]
-        //store options (starting with dash - )
-        //word list ends with null
+list_stream_t init_list_stream()
+{
+    list_stream_t stream=(list_stream_t) checked_malloc(sizeof(struct list_stream));
+    stream->head=NULL;
+    stream->tail=NULL;
+    stream->cursor=NULL;
+    return stream;
+}
+// initial graphnode
+graph_node_t init_graph_node(command_t cmd){
+    graph_node_t g=(graph_node_t) checked_malloc(sizeof(struct graph_node));
+    
+    g->command=cmd;
+    g->pid=-1;
+    g->size_before_list=0;
+    g->before =(graph_node_t*)checked_malloc(sizeof(struct graph_node*)*MAX_BEFORE);
+    return g;
+}
+// initial list node
+list_node_t init_list_node(graph_node_t node)
+{
+    list_node_t l= (list_node_t) checked_malloc(sizeof(struct list_node));
+    l->graph_node=node;
+    l->next=NULL;
+    l->read_list=(char**)checked_malloc(sizeof(char*)*100);//
+    l->write_list=(char**)checked_malloc(sizeof(char*)*100);//
+    return l;
+    
+}
+queue_t init_queue()
+{
+    struct queue *Q=(struct queue* )checked_malloc(sizeof( struct queue));
+    Q->head=NULL;
+    Q->cursor=NULL;
+    Q->tail=NULL;
+    return Q;
+}
+queue_node_t init_queue_node()
+{
+    struct queue_node* q=(struct queue_node*) checked_malloc(sizeof(struct queue_node));
+    q->g=NULL;
+    q->next=NULL;
+    return q;
+}
+dependency_t init_dependency_graph()
+{
+    dependency_t d = (dependency_t) checked_malloc(sizeof(struct dependency_graph));
+    d->no_dependency=init_queue();
+    d->dependency=init_queue();
+    return d;
+}
+
+
+// build the dependency graph
+/*for each command tree k in command stream
+ do{
+ //determine if there is dependency between command trees before it and itself.
+ 
+ processCommand(k->command);//given root node, generate the read&write list
+ for i=1:k-1
+ if(haveDependency(i,k))
+ update k's before list;
+ //check the before list
+ if before==NULL
+ add k to no_dependencies;
+ else
+ add k to dependencies;
+ }*/
+//
+
+dependency_t create_graph(command_stream_t s)
+{
+    command_t command;
+    list_stream_t stream= init_list_stream();
+    
+    // initial dependency graph
+    dependency_t d = init_dependency_graph();
+    
+    while ((command = read_command_stream (s)))//for each command tree
+    {
+        int index_r=0;
+        int index_w=0;
         
-        int i=1; //store from word[1]
-        while (cmd->u.word[i]!=NULL)
-        {
-            read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);
-            read_list[read_list_index]=cmd->u.word[i];
-            read_list_index++;
-            i++;
+        //
+        //create a new GraphNode to store command tree k;
+        graph_node_t node=init_graph_node(command);
+        
+        //create a ListNode with graphnode, wl, rl;
+        
+        if (command_t_no==1) {
+            stream->head=init_list_node( node);
+            stream->cursor=stream->head;
+        }
+        else {
+            stream->cursor->next=init_list_node(node);
+            stream->cursor=stream->cursor->next;
         }
         
-        write_list=(char**)checked_malloc(sizeof(char*)*100);//assume 100 words in write list. allocate space here? or elsewhere?
-        write_list[write_list_index]=(char*)checked_malloc(sizeof(char)*100);//assume word length is at most 100
-        write_list[write_list_index]=cmd->output;
-        write_list_index++;
+        //1. generate RL, WL for command tree
+        process_command( stream->cursor, stream->cursor->graph_node->command, &index_r, &index_w);//save the rl and wl inside
+        
+        stream->cursor->read_list[index_r]=NULL;
+        stream->cursor->write_list[index_w]=NULL;
+        
+        //2. check if there is dependency between this current command tree and all command trees before it. update the before list
+        if (command_t_no>1) {
+            int i=1;
+            list_node_t tmp=stream->head;
+            
+            while (i<command_t_no) {
+                if (haveDependency(tmp, stream->cursor)) {
+                    // update cursor's before list
+                    int ssize=stream->cursor->graph_node->size_before_list;
+                    stream->cursor->graph_node->before[ ssize ]=tmp->graph_node;
+                    stream->cursor->graph_node->size_before_list++;
+                }
+                tmp=tmp->next;
+                i++;
+            }
+        }
+        //3.check if before list is NULL, then update the dependency graph
+        if (stream->cursor->graph_node->size_before_list==0) {
+            
+            if (d->no_dependency->head==NULL) {
+                d->no_dependency->head = init_queue_node();
+                d->no_dependency->head->g=stream->cursor->graph_node;
+                d->no_dependency->cursor=d->no_dependency->head;
+            }
+            else
+            {
+                d->no_dependency->cursor->next = init_queue_node();
+                d->no_dependency->cursor->next->g= stream->cursor->graph_node;
+                d->no_dependency->cursor =d->no_dependency->cursor->next;
+            }
+            
+        }
+        else{
+
+            if (d->dependency->head==NULL){
+            
+                d->dependency->head = init_queue_node();
+                d->dependency->head->g=stream->cursor->graph_node;
+                d->dependency->cursor=d->dependency->head;
+            }
+            else
+            {
+                d->dependency->cursor->next = init_queue_node();
+                d->dependency->cursor->next->g= stream->cursor->graph_node;
+                d->dependency->cursor =d->dependency->cursor->next;
+            }
+        }
+        command_t_no++;
         
         
     }
+    // set tail and cursor
+    d->no_dependency->tail=d->no_dependency->cursor;
+    d->no_dependency->cursor=d->no_dependency->head;
+    d->dependency->tail=d->dependency->cursor;
+    d->dependency->cursor=d->dependency->head;
+    stream->tail=stream->cursor;
+    stream->cursor=stream->head;
+    return d;//
+}
+//build RL WL for each tree
+void process_command(list_node_t node, command_t command, int *index_r, int * index_w)
+{
+    if (node->graph_node->command->type==SIMPLE_COMMAND)
+
+    {
+        if (node->graph_node->command->input!=NULL) {
+            node->read_list[*index_r]=(char*) checked_malloc(sizeof(char)*100);
+            strcpy(node->read_list[*index_r], node->graph_node->command->input);
+            *index_r=*index_r+1;
+        }
+        
+        //store word[1]...word[n]
+        //ignore options (starting with dash - )
+        
+        int i=1; //store from word[1]
+        while (node->graph_node->command->u.word[i]!=NULL)
+        {
+            if (node->graph_node->command->u.word[i][0]!='-') {
+                node->read_list[*index_r]=(char*)checked_malloc(sizeof(char)*100);
+                strcpy(node->read_list[*index_r],node->graph_node->command->u.word[i]);
+                *index_r=*index_r+1;
+            }
+            i++;
+        }
+        // write list
+        if (node->graph_node->command->output!=NULL) {
+            node->write_list[*index_w]=(char*) checked_malloc(sizeof(char)*100);
+            strcpy(node->write_list[*index_w], node->graph_node->command->output);
+            *index_w=*index_w+1;
+        }
+    }
     
-    else if (cmd->type==SUBSHELL_COMMAND)
+    else if (node->graph_node->command->type==SUBSHELL_COMMAND)
     {
         
-        read_list=(char**)checked_malloc(sizeof(char*)*100);
-        read_list[read_list_index]=(char*)checked_malloc(sizeof(char)*100);
-        read_list[read_list_index]=cmd->input;
+        if (node->graph_node->command->input!=NULL) {
+            node->read_list[*index_r]=(char*) checked_malloc(sizeof(char)*100);
+            strcpy(node->read_list[*index_r], node->graph_node->command->input);
+            *index_r=*index_r+1;
+        }
         
-        write_list=(char**)checked_malloc(sizeof(char*)*100);
-        write_list[write_list_index]=(char*)checked_malloc(sizeof(char)*100);
-        write_list[write_list_index]=cmd->output;
+        // write list
+        if (node->graph_node->command->output!=NULL) {
+            node->write_list[*index_w]=(char*) checked_malloc(sizeof(char)*100);
+            strcpy(node->write_list[*index_w], node->graph_node->command->output);
+            *index_w=*index_w+1;
+        }
         
-        read_list_index++;
-        write_list_index++;
-        
-        process_command(cmd->u.subshell_command);
+        process_command(node,node->graph_node->command->u.subshell_command, index_r, index_w);
     }
     else
     {
-        process_command(cmd->u.command[0]);
-        process_command(cmd->u.command[1]);
-    
+        process_command(node,node->graph_node->command->u.command[0], index_r, index_w);
+        process_command(node,node->graph_node->command->u.command[1], index_r, index_w);
+        
     }
 }
- 
-
 
