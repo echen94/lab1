@@ -885,7 +885,7 @@ list_node_t init_list_node(graph_node_t node)
 }
 queue_t init_queue()
 {
-    struct queue *Q=(struct queue* )checked_malloc(sizeof( struct queue));
+    queue_t Q=(struct queue* )checked_malloc(sizeof( struct queue));
     Q->head=NULL;
     Q->cursor=NULL;
     Q->tail=NULL;
@@ -893,7 +893,7 @@ queue_t init_queue()
 }
 queue_node_t init_queue_node()
 {
-    struct queue_node* q=(struct queue_node*) checked_malloc(sizeof(struct queue_node));
+    queue_node_t q=(struct queue_node*) checked_malloc(sizeof(struct queue_node));
     q->g=NULL;
     q->next=NULL;
     return q;

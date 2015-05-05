@@ -353,13 +353,13 @@ void execute_pipe(command_t c)// c->command[2]
 //int execute_graph(dependency_graph){}
 
 void execute_no_dependency(queue_t no_dependency);
-void execute_dependency(queue_t dependency);
+int execute_dependency(queue_t dependency);
 
 int execute_graph(dependency_t dependency_graph)
 {
     execute_no_dependency(dependency_graph->no_dependency);
-    execute_dependency(dependency_graph->dependency);
-    return 0;///
+    int final_status=execute_dependency(dependency_graph->dependency);
+    return final_status;///return final status ??
 }
 
 void execute_no_dependency(queue_t no_dependency)
@@ -406,12 +406,13 @@ void execute_no_dependency(queue_t no_dependency)
      */
 }
 
-void execute_dependency(queue_t dependency)
+int execute_dependency(queue_t dependency)
 {
     queue_node_t queue_node_cursor=dependency->head;
+    int status=-1;
     while (queue_node_cursor->next != NULL)
     {
-        int status;
+        
         //for each graph node j in i->before
         //   struct graph_node** before;
         //loop through pointer of pointer
@@ -449,6 +450,7 @@ void execute_dependency(queue_t dependency)
             i->pid=pid;
 
      */
+    return status;
 }
 
 //other edge cases? after list?
