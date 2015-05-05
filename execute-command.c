@@ -358,7 +358,7 @@ void execute_dependency(queue_t dependency);
 int execute_graph(dependency_t dependency_graph)
 {
     execute_no_dependency(dependency_graph->no_dependency);
-    execute_dependency(dependency_graph->depedency);
+    execute_dependency(dependency_graph->dependency);
     return 0;///
 }
 
