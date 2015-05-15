@@ -83,7 +83,7 @@ main (int argc, char **argv)
         
         dependency_t graph=create_graph(command_stream); //inside read_command.c
         int final_status=0;
-        final_status=execute_graph(graph, process_num); //inside execute_command.c
+        final_status=execute_graph(graph, process_num); //pass process_num in the function
         return final_status;
         
         
