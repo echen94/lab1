@@ -22,7 +22,7 @@ static char const *program_name;
 static char const *script_name;
 
 dependency_t create_graph(command_stream_t s);
-int execute_graph(dependency_t graph);
+int execute_graph(dependency_t graph, int N);
 
 static void
 usage (void)
@@ -51,10 +51,15 @@ main (int argc, char **argv)
 
     if (argc!=3)
         error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
-    
-    if (!(isdigit(argv[1][0])))
+    int i=0;
+    if (argv[1][0]==NULL)
         error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
-    
+    while (argv[1][i]!=NULL)
+    {
+        if (!(isdigit(argv[1][i])))
+            error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
+        i++;
+    }
     process_num=atoi(argv[1]);
     script_name=argv[2];
     /*1C design*/
@@ -78,7 +83,7 @@ main (int argc, char **argv)
         
         dependency_t graph=create_graph(command_stream); //inside read_command.c
         int final_status=0;
-        final_status=execute_graph(graph); //inside execute_command.c
+        final_status=execute_graph(graph, process_num); //inside execute_command.c
         return final_status;
         
         

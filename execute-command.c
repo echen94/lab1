@@ -354,7 +354,7 @@ void execute_pipe(command_t c)// c->command[2]
 void execute_no_dependency(queue_t no_dependency);
 int  execute_dependency(queue_t dependency);
 
-int execute_graph(dependency_t dependency_graph)
+int execute_graph(dependency_t dependency_graph, int N)
 {
     execute_no_dependency(dependency_graph->no_dependency);
     
