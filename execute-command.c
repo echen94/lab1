@@ -373,7 +373,7 @@ void execute_no_dependency(queue_t no_dependency, int N)//int N
     queue_node_t queue_node_cursor=no_dependency->head;
     while (queue_node_cursor != NULL)// && count<N
     {
-        if (*num_process<N)
+        if (*num_process<N )
         {
         pid_t pid=fork();//count++; if less than N, execute, if bigger than N, go to the next while loop
             *num_process=*num_process+1;
