@@ -1,22 +1,11 @@
 Group member: Evelyn Chen (UID:704332587), Han Wang(UID:104547543)
 …
-to execute command, we implement different function with respect to simple, sequence, And, or, subshell, pipe command.
-1. simple command:
-we first deal with the input and output and get the fd.
-then, we call fork, do execvp inside child process and call wait inside parent process.
-2. and
-first, we call fork and if this child run successfully, we will call another fork inside parent process.
-3. or
-first, we call fork and if this child run unsuccessfully, we will call another fork inside parent process.
-4. sequence
-first, we call fork and inside the parent process, we will wait the first child to exit and call another fork.
-5. subshell
-we first deal with the input and output and get the fd.
-then, we call fork, do execute_command (c->u.subshell_command) inside child process and call wait inside parent process.
-6.pipe
-we first deal with the input and output and get the fd[2].
-then, we will fork the get the first child process as the right side of pipe and do execute_command(c->u.command[1]).
-then, in the parent process, we will fork one more time the get the second child process as the left side of pipe and do execute_command(c->u.command[0]).
-at last, inside the parent process, we let these two child process to wait the other to finish.
+1C Description:
 
-* the the whole process, we will set error signal when fd<0, dup2<0, fork fails and waitpid()<0. And we will also record parent’s
+1. We edit main.c to have the if else statement of time_travel variable. If time_travel is true, then we execute commands with parallels for the ones with dependencies.
+2. We declare a function in execute-command.c called execute_graph which executes no dependency queue then dependency queue. To execute no dependency queue, go through each graph node in the queue and fork. Execute commands for each command tree.
+3. To execute dependency queue, we go through each graph node in dependency queue, for each graph node, we execute the before list command trees.
+4. We create the graph inside read-command.c. We process the command, then create a graph node to store command tree. Then, we createa a list node with graph node, write list, and read list. At the end of create_graph function, we check the before list, and update the dependency graph accordingly.
+5. We implement process_command in read-command.c by passing in node, command, read list, and write list. If it's a simple command, we store input and word[1],word[2]...to read list while filtering out the option with dash. We store the output to write list.
+6. In process_command function, if the command is subshell, we store input to read list and output to write list.
+7. In process_command function, if the command is neither simple nor subshell, then we process the left command, then the right command. 

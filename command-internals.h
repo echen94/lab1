@@ -1,7 +1,6 @@
 // UCLA CS 111 Lab 1 command internals
-
 #include<unistd.h>
-#include <sys/types.h>
+#include<sys/types.h>
 
 enum command_type
 {
@@ -105,6 +104,8 @@ struct queue //linked list of queue node
     struct queue_node* cursor;
     struct queue_node* tail;
 };
+
+//create a list node {graph node, RL, WL}? where should i put RL, WL?
 
 struct dependency_graph
 {
