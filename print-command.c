@@ -52,8 +52,11 @@ command_indented_print (int indent, command_t c)
             case 1:
                 printf ("<>%s", c->input);
                 break;
-            default: // case 2
+            case 2: // case 2
                 printf ("<&%s", c->input);
+                break;
+            default:
+                break;
                 
                 
                 
@@ -68,17 +71,19 @@ command_indented_print (int indent, command_t c)
             case 0:
                 printf (">%s", c->output);
                 break;
-            case 1:
-                printf ("<>%s", c->output);
-                break;
+            //case 1: //only need to print once. print from input above 
+              //  printf ("<>%s", c->output);
+                //break;
             case 2:
                 printf (">&%s", c->output);
                 break;
             case 3:
                 printf (">>%s", c->output);
                 break;
-            default: // case 4
+            case 4: // case 4
                 printf (">|%s", c->output);
+                break;
+            default:
                 break;
                 
         }

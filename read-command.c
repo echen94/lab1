@@ -51,6 +51,7 @@ int line_number =1;
 bool wait_input =false; //sign for <
 bool wait_output =false; // >
 bool both_in_out = false; //<>
+bool has_option_c=false;
 int in_mode;
 int out_mode;
 
@@ -141,6 +142,8 @@ char* get_next_word (char *c, int *i, size_t size  )
         j++;
     }
     word[size_word]='\0';
+    if (size_word==2 && strcmp(word,"-C")==0)
+        has_option_c=true;
     return word;
 }
 
@@ -544,25 +547,30 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                             in_mode=1;
                             *index=*index+1;
                             out_mode=1;
-                            wait_output=true;
+                            //wait_output=true;
                             both_in_out=true;//special treatment 
                             break;
                         case '&':
                             in_mode=2;
                             *index=*index+1;
+                            wait_input=true;
                             break;
                         case ' ':
                             in_mode=0;
+                            wait_input=true;
+                            break;
                         default: // standard : \0 or character //also need to check for invalid operator <
                             if (isWord(buff[*index+1]))
                                 in_mode=0;
                             else
                                 error(1, 0, "%d: invalid input operator ", line_number);
+                            wait_input=true;
+                            break;
                             //in_mode=0;
                     }
                     
                 }
-                wait_input=true;
+                //wait_input=true;
                 break;
                 
             case '>':
@@ -590,15 +598,19 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                         case '|':
                             out_mode=4;
                             *index=*index+1;
+                            if (has_option_c==false)
+                                error(1, 0, "%d: option C isn't implemented before >|", line_number);
                             break;
 
                         case ' ':
                             out_mode=0;
+                            break;
                         default: // standard : \0 or character //also need to check for invalid operator <
                             if (isWord(buff[*index+1]))
                                 out_mode=0;
                             else
                                 error(1, 0, "%d: invalid output operator ", line_number);
+                            break;
                     }
                     
                 }
@@ -633,6 +645,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                             if((op_s.top>0|| cmd_s.top>0)&& ((buff[*index+1]=='\n'))){
                                 //	printf("%d %d",op_s.top,cmd_s.top);
                                 isReturn= true;
+                                has_option_c=false;
                             }
                             if(buff[*index+1]=='\n')
                                 line_number++;
@@ -640,7 +653,10 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                             *index=*index+1;
                         }
                         if(((op_s.top>0)||(cmd_s.top>0))&&(comments>1))
+                        {
                             isReturn = true;
+                            has_option_c=false;
+                        }
                         
                         if(*index<ssize-1 && ((buff[*index]=='\n')||(buff[*index]==' ')||(buff[*index]=='\t')))
                             *index=*index+1;
@@ -714,7 +730,10 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     
                     // return a tree
                     if(op_s.top>0 || cmd_s.top>0)
+                    {
                         isReturn=true;
+                        has_option_c=false;
+                    }
                 }
                 
                 break;
@@ -724,7 +743,29 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     error(1, 0, "%d: syntax error 19 invalid input", line_number);
                 if (wait_input && wait_output)//happens when <>, both in and out are true
                     error (1, 0, "%d: syntax error 20 input output dismatch", line_number);
-                //
+                if (wait_input && both_in_out)
+                    error (1, 0, "%d: syntax error 20 input output dismatch", line_number);
+                if (wait_output && both_in_out)
+                    error (1, 0, "%d: syntax error 20 input output dismatch", line_number);
+                if (both_in_out)//for <>, store both input and output
+                {
+                    char* text= get_next_word(buff, index, ssize);
+                    if (text==NULL|| strlen(text)==0) {
+                        error(1, 0, "%d: syntax error 21-1 invalid <", line_number);
+                    }
+                    int len = sizeof(text)/sizeof(char);
+                    cmd_s.command[cmd_s.top-1]->input = (char*) checked_malloc(sizeof(char)*len);
+                    cmd_s.command[cmd_s.top-1]->output = (char*) checked_malloc(sizeof(char)*len);
+                    strcpy(cmd_s.command[cmd_s.top-1]->input, text); // undefined text //how do you save as both input and output but save only a copy in command stack?
+                    strcpy(cmd_s.command[cmd_s.top-1]->output, text); // undefined text
+                    *index=*index-1;//to get back one step since there's a ++ at the end
+                    cmd_s.command[cmd_s.top-1]->input_mode=in_mode;
+                    cmd_s.command[cmd_s.top-1]->output_mode=out_mode;
+                    in_mode=-1;
+                    out_mode=-1;
+                    both_in_out=false;
+                    break;
+                }
                 if(wait_input)
                 {
                     //*index=(*index)+1;
