@@ -9,50 +9,85 @@
 static void
 command_indented_print (int indent, command_t c)
 {
-  switch (c->type)
+    switch (c->type)
     {
-    case AND_COMMAND:
-    case SEQUENCE_COMMAND:
-    case OR_COMMAND:
-    case PIPE_COMMAND:
-      {
-	command_indented_print (indent + 2 * (c->u.command[0]->type != c->type),
-				c->u.command[0]);
-	static char const command_label[][3] = { "&&", ";", "||", "|" };
-	printf (" \\\n%*s%s\n", indent, "", command_label[c->type]);
-	command_indented_print (indent + 2 * (c->u.command[1]->type != c->type),
-				c->u.command[1]);
-	break;
-      }
-
-    case SIMPLE_COMMAND:
-      {
-	char **w = c->u.word;
-	printf ("%*s%s", indent, "", *w);
-	while (*++w)
-	  printf (" %s", *w);
-	break;
-      }
-
-    case SUBSHELL_COMMAND:
-      printf ("%*s(\n", indent, "");
-      command_indented_print (indent + 1, c->u.subshell_command);
-      printf ("\n%*s)", indent, "");
-      break;
-
-    default:
-      abort ();
+        case AND_COMMAND:
+        case SEQUENCE_COMMAND:
+        case OR_COMMAND:
+        case PIPE_COMMAND:
+        {
+            command_indented_print (indent + 2 * (c->u.command[0]->type != c->type),
+                                    c->u.command[0]);
+            static char const command_label[][3] = { "&&", ";", "||", "|" };
+            printf (" \\\n%*s%s\n", indent, "", command_label[c->type]);
+            command_indented_print (indent + 2 * (c->u.command[1]->type != c->type),
+                                    c->u.command[1]);
+            break;
+        }
+            
+        case SIMPLE_COMMAND:
+        {
+            char **w = c->u.word;
+            printf ("%*s%s", indent, "", *w);
+            while (*++w)
+                printf (" %s", *w);
+            break;
+        }
+            
+        case SUBSHELL_COMMAND:
+            printf ("%*s(\n", indent, "");
+            command_indented_print (indent + 1, c->u.subshell_command);
+            printf ("\n%*s)", indent, "");
+            break;
+            
+        default:
+            abort ();
     }
-
-  if (c->input)
-    printf ("<%s", c->input);
-  if (c->output)
-    printf (">%s", c->output);
+    //initial -1, standard 0, <>:1 ?, <&: 2
+    if (c->input){
+        switch(c->input_mode){
+            case 0:
+                printf ("<%s", c->input);
+                break;
+            case 1:
+                printf ("<>%s", c->input);
+                break;
+            default: // case 2
+                printf ("<&%s", c->input);
+                
+                
+                
+        }
+        
+    }
+    //initial -1, standard 0, <>:1, >& :2, >>: 3, >| 4
+    
+    if (c->output)
+    {
+        switch(c->output_mode){
+            case 0:
+                printf (">%s", c->output);
+                break;
+            case 1:
+                printf ("<>%s", c->output);
+                break;
+            case 2:
+                printf (">&%s", c->output);
+                break;
+            case 3:
+                printf (">>%s", c->output);
+                break;
+            default: // case 4
+                printf (">|%s", c->output);
+                break;
+                
+        }
+        
+    }
 }
-
-void
-print_command (command_t c)
-{
-  command_indented_print (2, c);
-  putchar ('\n');
-}
+    void
+    print_command (command_t c)
+    {
+        command_indented_print (2, c);
+        putchar ('\n');
+    }

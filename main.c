@@ -11,10 +11,6 @@
 
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <ctype.h>
 
 #include "command.h"
 
@@ -22,7 +18,7 @@ static char const *program_name;
 static char const *script_name;
 
 dependency_t create_graph(command_stream_t s);
-int execute_graph(dependency_t graph, int N);
+int execute_graph(dependency_t graph);
 
 static void
 usage (void)
@@ -40,30 +36,28 @@ int
 main (int argc, char **argv)
 {
     
-    int process_num = 0;
+    
     
     int command_number = 1;
     bool print_tree = false;
-    
-    /*1C design */
-    bool time_travel = true; //for 1C design, set time_travel to true by default
+    bool time_travel = false;
     program_name = argv[0];
-
-    if (argc!=3)
-        error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
-    int i=0;
-    if (argv[1][0]==NULL)
-        error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
-    while (argv[1][i]!=NULL)
-    {
-        if (!(isdigit(argv[1][i])))
-            error(1,0,"usage: %s [num_process] SCRIPT-FILE", program_name);
-        i++;
-    }
-    process_num=atoi(argv[1]);
-    script_name=argv[2];
-    /*1C design*/
     
+    for (;;)
+        switch (getopt (argc, argv, "pt"))
+    {
+        case 'p': print_tree = true; break;
+        case 't': time_travel = true; break;
+        default: usage (); break;
+        case -1: goto options_exhausted;
+    }
+options_exhausted:;
+    
+    // There must be exactly one file argument.
+    if (optind != argc - 1)
+        usage ();
+    
+    script_name = argv[optind];
     FILE *script_stream = fopen (script_name, "r");
     if (! script_stream)
         error (1, errno, "%s: cannot open", script_name);
@@ -83,7 +77,7 @@ main (int argc, char **argv)
         
         dependency_t graph=create_graph(command_stream); //inside read_command.c
         int final_status=0;
-        final_status=execute_graph(graph, process_num); //pass process_num in the function
+        final_status=execute_graph(graph); //inside execute_command.c
         return final_status;
         
         

@@ -2,7 +2,6 @@
 
 #include "command.h"
 #include "command-internals.h"
-#include "alloc.h"
 
 #ifdef __APPLE__
 #include <err.h>
@@ -352,36 +351,27 @@ void execute_pipe(command_t c)// c->command[2]
 
 //int execute_graph(dependency_graph){}
 
-void execute_no_dependency(queue_t no_dependency, int N);
+void execute_no_dependency(queue_t no_dependency);
 int  execute_dependency(queue_t dependency);
 
-int execute_graph(dependency_t dependency_graph, int N)
+int execute_graph(dependency_t dependency_graph)
 {
-    execute_no_dependency(dependency_graph->no_dependency, N);
+    execute_no_dependency(dependency_graph->no_dependency);
     
     int final_status=execute_dependency(dependency_graph->dependency);
     return final_status;///
 }
 
-//int count=0; //N//need to use a pointer! allocate memory
-
-
-void execute_no_dependency(queue_t no_dependency, int N)//int N
+void execute_no_dependency(queue_t no_dependency)
 {
-    int *num_process=(int*)checked_malloc(sizeof(int));
-    *num_process=0;
     queue_node_t queue_node_cursor=no_dependency->head;
-    while (queue_node_cursor != NULL)// && count<N
+    while (queue_node_cursor != NULL)
     {
-        if (*num_process<N )
-        {
-        pid_t pid=fork();//count++; if less than N, execute, if bigger than N, go to the next while loop
-            *num_process=*num_process+1;
+        pid_t pid=fork();
         if (pid==0)
         {
             execute_command(queue_node_cursor->g->command);
-             *num_process=*num_process-1;
-            exit(0);//count--;
+            exit(0);
         }
         else
         {
@@ -391,9 +381,6 @@ void execute_no_dependency(queue_t no_dependency, int N)//int N
         }
         
         queue_node_cursor=queue_node_cursor->next;
-        }
-        else
-            continue;
     }
     
     /*
