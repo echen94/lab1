@@ -535,7 +535,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 
                 if((next<ssize)&&buff[next]=='\n')
                     error(1, 0, "%d: syntax error 13-1 < followed by newline ", line_number);
-                if(wait_input || wait_output)
+                if(wait_input || wait_output||both_in_out)
                     error(1, 0, "%d: syntax error 13-2 < happens at wrong place", line_number);
                 // input mode
                 //initial -1, standard 0, <>:1 ?, <&: 2
@@ -565,7 +565,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                             else
                                 error(1, 0, "%d: invalid input operator ", line_number);
                             wait_input=true;
-                            break;
+                            
                             //in_mode=0;
                     }
                     
@@ -579,7 +579,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                 
                 if((next<ssize)&&buff[next]=='\n')
                     error(1, 0, "%d: syntax error 15-1 > followed by newline ", line_number);
-                if(wait_input || wait_output)
+                if(wait_input || wait_output||both_in_out)
                     error(1, 0, "%d: syntax error 15-2 > happens at wrong place", line_number);
                 //command_t tmp=store_simple_command();// things needed
                 //push_cmd(tmp);
@@ -796,6 +796,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
                     cmd_s.command[cmd_s.top-1]->output_mode=out_mode;
                     out_mode=-1;
                     wait_output =false;
+                    
                     break;
                 }
                 // simple command
@@ -807,7 +808,7 @@ command_t build_command_t(char* buff, int* index, size_t ssize)// size=buff--rea
         (*index)=(*index)+1;
     }
     // return process
-    if (wait_input || wait_output) {
+    if (wait_input || wait_output||both_in_out) {
         error(1, 0, "%d: syntax error 21-3 invalid > <", line_number);
     }
     // pop all operators and commands
